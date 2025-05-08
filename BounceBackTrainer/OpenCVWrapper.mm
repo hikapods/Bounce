@@ -46,6 +46,9 @@
         std::cout << "mask size: " << mask.cols << "x" << mask.rows << std::endl;
         
         cv::Mat prevGray;
+        std::string persistentZoneLabel = "";
+        std::string persistentFeedback = "";
+
         NSLog(@"[OpenCV] Input path: %s", input.c_str());
         
         while (cap.read(frame)) {
@@ -164,6 +167,8 @@
                             int targetRow = std::clamp((targetCenter.y - fullTarget.y) / rowHeight, 0, 2);
 
                             std::string feedback;
+                            
+                            persistentZoneLabel = "Zone: " + zoneLabel;
 
                             // Compare rows for vertical suggestion
                             if (row > targetRow) feedback += "Try to kick higher";
@@ -175,10 +180,8 @@
 
                             if (row == targetRow && col == targetCol)
                                 feedback = "Nice shot! Right on target!";
-
-                            cv::putText(outputFrame, "Feedback: " + feedback,
-                                        cv::Point(30, 60),  // fixed lower-left location
-                                        cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(255, 255, 255), 2);
+                            
+                            persistentFeedback = feedback;
 
                         }
                     }
@@ -187,6 +190,17 @@
             }
             
             prevGray = gray;
+            if (!persistentZoneLabel.empty()) {
+                cv::putText(outputFrame, persistentZoneLabel,
+                            cv::Point(30, 90),
+                            cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(0, 255, 255), 2);
+            }
+
+            if (!persistentFeedback.empty()) {
+                cv::putText(outputFrame, "Feedback: " + persistentFeedback,
+                            cv::Point(30, 60),
+                            cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(255, 255, 255), 2);
+            }
             writer.write(outputFrame);
         }
         
