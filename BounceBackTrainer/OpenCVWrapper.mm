@@ -136,6 +136,31 @@
                     
                     cv::circle(outputFrame, center, 6, cv::Scalar(0, 0, 255), -1);
                     cv::putText(outputFrame, "Impact Detected", cv::Point(30, 30), cv::FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(255, 255, 255), 2);
+                    // ---------------- IMPACT ZONE CLASSIFICATION ----------------
+                    if (!allPoints.empty()) {
+                        cv::Rect fullTarget = cv::boundingRect(allPoints);
+                        
+                        if (fullTarget.contains(center)) {
+                            int colWidth = fullTarget.width / 3;
+                            int rowHeight = fullTarget.height / 3;
+                            
+                            int col = std::clamp((center.x - fullTarget.x) / colWidth, 0, 2);
+                            int row = std::clamp((center.y - fullTarget.y) / rowHeight, 0, 2);
+                            
+                            const char* zoneNames[3][3] = {
+                                {"Upper Left",    "Upper Center",    "Upper Right"},
+                                {"Center Left",   "Center",          "Center Right"},
+                                {"Lower Left",    "Lower Center",    "Lower Right"}
+                            };
+                            
+                            std::string zoneLabel = zoneNames[row][col];
+                            
+                            cv::putText(outputFrame, "Zone: " + zoneLabel,
+                                        cv::Point(center.x + 10, center.y - 10),
+                                        cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(0, 255, 255), 2);
+                        }
+                    }
+
                 }
             }
             
