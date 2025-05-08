@@ -10,13 +10,13 @@ struct ContentView: View {
 
     var body: some View {
         VStack(spacing: 20) {
-            Text("🎯 Bounce Back Trainer").font(.title2)
+            Text("Bounce Back Trainer").font(.title2)
 
-            Button("📂 Upload Video") {
+            Button("Upload Video") {
                 showPicker = true
             }
 
-            Button("🚀 Analyze Video") {
+            Button("Analyze Video") {
                 guard let input = inputURL else { return }
 
                 let output = FileManager.default.temporaryDirectory
@@ -36,7 +36,7 @@ struct ContentView: View {
             .disabled(inputURL == nil)
 
 
-            Button("🎬 View Output Video") {
+            Button("View Output Video") {
                 if let url = outputURL {
                     openResizableVideoWindow(for: url)
                 }
