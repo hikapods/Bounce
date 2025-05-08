@@ -1,0 +1,656 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		40B8B8112DC72D8100C7397B /* libopencv_core.4.11.0.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 40B8B8102DC72D8100C7397B /* libopencv_core.4.11.0.dylib */; };
+		40B8B8132DC72DA300C7397B /* libopencv_imgproc.4.11.0.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 40B8B8122DC72DA300C7397B /* libopencv_imgproc.4.11.0.dylib */; };
+		40B8B8152DC7C54D00C7397B /* libopencv_highgui.4.11.0.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 40B8B8142DC7C54D00C7397B /* libopencv_highgui.4.11.0.dylib */; };
+		40B8B8172DC7C57400C7397B /* libopencv_imgcodecs.4.11.0.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 40B8B8162DC7C57400C7397B /* libopencv_imgcodecs.4.11.0.dylib */; };
+		40B8B8192DC7C59600C7397B /* libopencv_videoio.4.11.0.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 40B8B8182DC7C59600C7397B /* libopencv_videoio.4.11.0.dylib */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		40B8B7EA2DC7280B00C7397B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 40B8B7D32DC7280900C7397B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 40B8B7DA2DC7280900C7397B;
+			remoteInfo = BounceBackTrainer;
+		};
+		40B8B7F42DC7280B00C7397B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 40B8B7D32DC7280900C7397B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 40B8B7DA2DC7280900C7397B;
+			remoteInfo = BounceBackTrainer;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		40B8B7DB2DC7280900C7397B /* BounceBackTrainer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BounceBackTrainer.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		40B8B7E92DC7280B00C7397B /* BounceBackTrainerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BounceBackTrainerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		40B8B7F32DC7280B00C7397B /* BounceBackTrainerUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BounceBackTrainerUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		40B8B8072DC72C7900C7397B /* libopencv.sfm.correspondence.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libopencv.sfm.correspondence.a; sourceTree = "<group>"; };
+		40B8B8082DC72C7900C7397B /* libopencv.sfm.multiview.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libopencv.sfm.multiview.a; sourceTree = "<group>"; };
+		40B8B8092DC72C7900C7397B /* libopencv.sfm.numeric.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libopencv.sfm.numeric.a; sourceTree = "<group>"; };
+		40B8B80A2DC72C7900C7397B /* libopencv.sfm.simple_pipeline.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libopencv.sfm.simple_pipeline.a; sourceTree = "<group>"; };
+		40B8B8102DC72D8100C7397B /* libopencv_core.4.11.0.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libopencv_core.4.11.0.dylib; path = ../../../../../opt/homebrew/Cellar/opencv/4.11.0_1/lib/libopencv_core.4.11.0.dylib; sourceTree = "<group>"; };
+		40B8B8122DC72DA300C7397B /* libopencv_imgproc.4.11.0.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libopencv_imgproc.4.11.0.dylib; path = ../../../../../opt/homebrew/Cellar/opencv/4.11.0_1/lib/libopencv_imgproc.4.11.0.dylib; sourceTree = "<group>"; };
+		40B8B8142DC7C54D00C7397B /* libopencv_highgui.4.11.0.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libopencv_highgui.4.11.0.dylib; path = ../../../../../opt/homebrew/Cellar/opencv/4.11.0_1/lib/libopencv_highgui.4.11.0.dylib; sourceTree = "<group>"; };
+		40B8B8162DC7C57400C7397B /* libopencv_imgcodecs.4.11.0.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libopencv_imgcodecs.4.11.0.dylib; path = ../../../../../opt/homebrew/Cellar/opencv/4.11.0_1/lib/libopencv_imgcodecs.4.11.0.dylib; sourceTree = "<group>"; };
+		40B8B8182DC7C59600C7397B /* libopencv_videoio.4.11.0.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libopencv_videoio.4.11.0.dylib; path = ../../../../../opt/homebrew/Cellar/opencv/4.11.0_1/lib/libopencv_videoio.4.11.0.dylib; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		40B8B7DD2DC7280900C7397B /* BounceBackTrainer */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = BounceBackTrainer;
+			sourceTree = "<group>";
+		};
+		40B8B7EC2DC7280B00C7397B /* BounceBackTrainerTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = BounceBackTrainerTests;
+			sourceTree = "<group>";
+		};
+		40B8B7F62DC7280B00C7397B /* BounceBackTrainerUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = BounceBackTrainerUITests;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		40B8B7D82DC7280900C7397B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				40B8B8192DC7C59600C7397B /* libopencv_videoio.4.11.0.dylib in Frameworks */,
+				40B8B8172DC7C57400C7397B /* libopencv_imgcodecs.4.11.0.dylib in Frameworks */,
+				40B8B8152DC7C54D00C7397B /* libopencv_highgui.4.11.0.dylib in Frameworks */,
+				40B8B8132DC72DA300C7397B /* libopencv_imgproc.4.11.0.dylib in Frameworks */,
+				40B8B8112DC72D8100C7397B /* libopencv_core.4.11.0.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		40B8B7E62DC7280B00C7397B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		40B8B7F02DC7280B00C7397B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		40B8B7D22DC7280900C7397B = {
+			isa = PBXGroup;
+			children = (
+				40B8B7DD2DC7280900C7397B /* BounceBackTrainer */,
+				40B8B7EC2DC7280B00C7397B /* BounceBackTrainerTests */,
+				40B8B7F62DC7280B00C7397B /* BounceBackTrainerUITests */,
+				40B8B8062DC72C2000C7397B /* Frameworks */,
+				40B8B7DC2DC7280900C7397B /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		40B8B7DC2DC7280900C7397B /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				40B8B7DB2DC7280900C7397B /* BounceBackTrainer.app */,
+				40B8B7E92DC7280B00C7397B /* BounceBackTrainerTests.xctest */,
+				40B8B7F32DC7280B00C7397B /* BounceBackTrainerUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		40B8B8062DC72C2000C7397B /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				40B8B8182DC7C59600C7397B /* libopencv_videoio.4.11.0.dylib */,
+				40B8B8162DC7C57400C7397B /* libopencv_imgcodecs.4.11.0.dylib */,
+				40B8B8142DC7C54D00C7397B /* libopencv_highgui.4.11.0.dylib */,
+				40B8B8122DC72DA300C7397B /* libopencv_imgproc.4.11.0.dylib */,
+				40B8B8102DC72D8100C7397B /* libopencv_core.4.11.0.dylib */,
+				40B8B80B2DC72C7900C7397B /* 3rdparty */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		40B8B80B2DC72C7900C7397B /* 3rdparty */ = {
+			isa = PBXGroup;
+			children = (
+				40B8B8072DC72C7900C7397B /* libopencv.sfm.correspondence.a */,
+				40B8B8082DC72C7900C7397B /* libopencv.sfm.multiview.a */,
+				40B8B8092DC72C7900C7397B /* libopencv.sfm.numeric.a */,
+				40B8B80A2DC72C7900C7397B /* libopencv.sfm.simple_pipeline.a */,
+			);
+			name = 3rdparty;
+			path = ../../../../../opt/homebrew/Cellar/opencv/4.11.0_1/lib/opencv4/3rdparty;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		40B8B7DA2DC7280900C7397B /* BounceBackTrainer */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 40B8B7FD2DC7280B00C7397B /* Build configuration list for PBXNativeTarget "BounceBackTrainer" */;
+			buildPhases = (
+				40B8B7D72DC7280900C7397B /* Sources */,
+				40B8B7D82DC7280900C7397B /* Frameworks */,
+				40B8B7D92DC7280900C7397B /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				40B8B7DD2DC7280900C7397B /* BounceBackTrainer */,
+			);
+			name = BounceBackTrainer;
+			packageProductDependencies = (
+			);
+			productName = BounceBackTrainer;
+			productReference = 40B8B7DB2DC7280900C7397B /* BounceBackTrainer.app */;
+			productType = "com.apple.product-type.application";
+		};
+		40B8B7E82DC7280B00C7397B /* BounceBackTrainerTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 40B8B8002DC7280B00C7397B /* Build configuration list for PBXNativeTarget "BounceBackTrainerTests" */;
+			buildPhases = (
+				40B8B7E52DC7280B00C7397B /* Sources */,
+				40B8B7E62DC7280B00C7397B /* Frameworks */,
+				40B8B7E72DC7280B00C7397B /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				40B8B7EB2DC7280B00C7397B /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				40B8B7EC2DC7280B00C7397B /* BounceBackTrainerTests */,
+			);
+			name = BounceBackTrainerTests;
+			packageProductDependencies = (
+			);
+			productName = BounceBackTrainerTests;
+			productReference = 40B8B7E92DC7280B00C7397B /* BounceBackTrainerTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		40B8B7F22DC7280B00C7397B /* BounceBackTrainerUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 40B8B8032DC7280B00C7397B /* Build configuration list for PBXNativeTarget "BounceBackTrainerUITests" */;
+			buildPhases = (
+				40B8B7EF2DC7280B00C7397B /* Sources */,
+				40B8B7F02DC7280B00C7397B /* Frameworks */,
+				40B8B7F12DC7280B00C7397B /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				40B8B7F52DC7280B00C7397B /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				40B8B7F62DC7280B00C7397B /* BounceBackTrainerUITests */,
+			);
+			name = BounceBackTrainerUITests;
+			packageProductDependencies = (
+			);
+			productName = BounceBackTrainerUITests;
+			productReference = 40B8B7F32DC7280B00C7397B /* BounceBackTrainerUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		40B8B7D32DC7280900C7397B /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1630;
+				LastUpgradeCheck = 1630;
+				TargetAttributes = {
+					40B8B7DA2DC7280900C7397B = {
+						CreatedOnToolsVersion = 16.3;
+						LastSwiftMigration = 1630;
+					};
+					40B8B7E82DC7280B00C7397B = {
+						CreatedOnToolsVersion = 16.3;
+						TestTargetID = 40B8B7DA2DC7280900C7397B;
+					};
+					40B8B7F22DC7280B00C7397B = {
+						CreatedOnToolsVersion = 16.3;
+						TestTargetID = 40B8B7DA2DC7280900C7397B;
+					};
+				};
+			};
+			buildConfigurationList = 40B8B7D62DC7280900C7397B /* Build configuration list for PBXProject "BounceBackTrainer" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 40B8B7D22DC7280900C7397B;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 40B8B7DC2DC7280900C7397B /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				40B8B7DA2DC7280900C7397B /* BounceBackTrainer */,
+				40B8B7E82DC7280B00C7397B /* BounceBackTrainerTests */,
+				40B8B7F22DC7280B00C7397B /* BounceBackTrainerUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		40B8B7D92DC7280900C7397B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		40B8B7E72DC7280B00C7397B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		40B8B7F12DC7280B00C7397B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		40B8B7D72DC7280900C7397B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		40B8B7E52DC7280B00C7397B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		40B8B7EF2DC7280B00C7397B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		40B8B7EB2DC7280B00C7397B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 40B8B7DA2DC7280900C7397B /* BounceBackTrainer */;
+			targetProxy = 40B8B7EA2DC7280B00C7397B /* PBXContainerItemProxy */;
+		};
+		40B8B7F52DC7280B00C7397B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 40B8B7DA2DC7280900C7397B /* BounceBackTrainer */;
+			targetProxy = 40B8B7F42DC7280B00C7397B /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		40B8B7FB2DC7280B00C7397B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				"HEADER_SEARCH_PATHS[arch=*]" = /opt/homebrew/opt/opencv/include/opencv4;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		40B8B7FC2DC7280B00C7397B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SWIFT_COMPILATION_MODE = wholemodule;
+			};
+			name = Release;
+		};
+		40B8B7FE2DC7280B00C7397B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = BounceBackTrainer/BounceBackTrainer.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphoneos*]" = UIStatusBarStyleDefault;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.4;
+				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					/opt/homebrew/opt/opencv/lib,
+					/opt/homebrew/opt/opencv/lib,
+				);
+				MACOSX_DEPLOYMENT_TARGET = 15.4;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.hikapods.BounceBackTrainer;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "BounceBackTrainer/BounceBackTrainer-Bridging-Header.h";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				"WARNING_CFLAGS[arch=*]" = (
+					"-Wno-documentation\n-Wno-documentation\n",
+				);
+				XROS_DEPLOYMENT_TARGET = 2.4;
+			};
+			name = Debug;
+		};
+		40B8B7FF2DC7280B00C7397B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = BounceBackTrainer/BounceBackTrainer.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphoneos*]" = UIStatusBarStyleDefault;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.4;
+				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					/opt/homebrew/opt/opencv/lib,
+					/opt/homebrew/opt/opencv/lib,
+				);
+				MACOSX_DEPLOYMENT_TARGET = 15.4;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.hikapods.BounceBackTrainer;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "BounceBackTrainer/BounceBackTrainer-Bridging-Header.h";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				XROS_DEPLOYMENT_TARGET = 2.4;
+			};
+			name = Release;
+		};
+		40B8B8012DC7280B00C7397B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.4;
+				MACOSX_DEPLOYMENT_TARGET = 15.4;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.hikapods.BounceBackTrainerTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/BounceBackTrainer.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/BounceBackTrainer";
+				XROS_DEPLOYMENT_TARGET = 2.4;
+			};
+			name = Debug;
+		};
+		40B8B8022DC7280B00C7397B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.4;
+				MACOSX_DEPLOYMENT_TARGET = 15.4;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.hikapods.BounceBackTrainerTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/BounceBackTrainer.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/BounceBackTrainer";
+				XROS_DEPLOYMENT_TARGET = 2.4;
+			};
+			name = Release;
+		};
+		40B8B8042DC7280B00C7397B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.4;
+				MACOSX_DEPLOYMENT_TARGET = 15.4;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.hikapods.BounceBackTrainerUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				TEST_TARGET_NAME = BounceBackTrainer;
+				XROS_DEPLOYMENT_TARGET = 2.4;
+			};
+			name = Debug;
+		};
+		40B8B8052DC7280B00C7397B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.4;
+				MACOSX_DEPLOYMENT_TARGET = 15.4;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.hikapods.BounceBackTrainerUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				TEST_TARGET_NAME = BounceBackTrainer;
+				XROS_DEPLOYMENT_TARGET = 2.4;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		40B8B7D62DC7280900C7397B /* Build configuration list for PBXProject "BounceBackTrainer" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				40B8B7FB2DC7280B00C7397B /* Debug */,
+				40B8B7FC2DC7280B00C7397B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		40B8B7FD2DC7280B00C7397B /* Build configuration list for PBXNativeTarget "BounceBackTrainer" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				40B8B7FE2DC7280B00C7397B /* Debug */,
+				40B8B7FF2DC7280B00C7397B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		40B8B8002DC7280B00C7397B /* Build configuration list for PBXNativeTarget "BounceBackTrainerTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				40B8B8012DC7280B00C7397B /* Debug */,
+				40B8B8022DC7280B00C7397B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		40B8B8032DC7280B00C7397B /* Build configuration list for PBXNativeTarget "BounceBackTrainerUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				40B8B8042DC7280B00C7397B /* Debug */,
+				40B8B8052DC7280B00C7397B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 40B8B7D32DC7280900C7397B /* Project object */;
+}
