@@ -6,6 +6,7 @@ struct ContentView: View {
     @State private var outputURL: URL?
     @State private var showVideoPlayer = false
     @State private var showPicker = false
+    @StateObject private var windowHolder = WindowHolder()
 
     var body: some View {
         VStack(spacing: 20) {
@@ -26,6 +27,7 @@ struct ContentView: View {
 
                     print("Analyzing: \(input.path)")
                     OpenCVWrapper.analyzeVideo(input.path, outputPath: output.path)
+                    print("Output saved to: \(output.path)") //
                     outputURL = output
                 } else {
                     print("Failed to access security-scoped resource")
@@ -69,5 +71,13 @@ struct ContentView: View {
         window.contentViewController = hosting
         window.title = "Analyzed Output"
         window.makeKeyAndOrderFront(nil)
+        windowHolder.window = window
+        windowHolder.controller = hosting
     }
 }
+
+class WindowHolder: ObservableObject {
+    var window: NSWindow?
+    var controller: NSHostingController<OutputVideoView>?
+}
+
