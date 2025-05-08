@@ -158,6 +158,28 @@
                             cv::putText(outputFrame, "Zone: " + zoneLabel,
                                         cv::Point(center.x + 10, center.y - 10),
                                         cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(0, 255, 255), 2);
+                            
+                            // Classify target zone using same logic
+                            int targetCol = std::clamp((targetCenter.x - fullTarget.x) / colWidth, 0, 2);
+                            int targetRow = std::clamp((targetCenter.y - fullTarget.y) / rowHeight, 0, 2);
+
+                            std::string feedback;
+
+                            // Compare rows for vertical suggestion
+                            if (row > targetRow) feedback += "Try to kick higher";
+                            else if (row < targetRow) feedback += "Try to kick lower";
+
+                            // Compare cols for horizontal suggestion
+                            if (col > targetCol) feedback += (feedback.empty() ? "" : " and ") + std::string("left");
+                            else if (col < targetCol) feedback += (feedback.empty() ? "" : " and ") + std::string("right");
+
+                            if (row == targetRow && col == targetCol)
+                                feedback = "Nice shot! Right on target!";
+
+                            cv::putText(outputFrame, "Feedback: " + feedback,
+                                        cv::Point(30, 60),  // fixed lower-left location
+                                        cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(255, 255, 255), 2);
+
                         }
                     }
 
