@@ -1,4 +1,4 @@
-# Bounce Back Trainer
+# Bounce Back
 
 Bounce Back Trainer is a macOS SwiftUI app that analyzes soccer training videos using computer vision. It detects the ball's impact relative to a colored target and provides visual feedback to improve shot accuracy.
 
