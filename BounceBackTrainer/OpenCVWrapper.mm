@@ -1,4 +1,6 @@
 #import "OpenCVWrapper.h"
+#import <UIKit/UIKit.h>
+#import <CoreGraphics/CoreGraphics.h>
 
 // Workaround Apple 'NO' macro conflict with OpenCV stitching
 #ifdef NO
@@ -130,10 +132,10 @@ static int lastFrameNumber = 0;
 static double lastVelocity = 0.0;
 
 // Additional filtering for false positive reduction
-static const int MIN_BALL_AREA = 800;          // Increased minimum area
-static const int MAX_BALL_AREA = 15000;        // Reduced maximum area
-static const double MIN_CIRCULARITY = 0.75;    // Increased circularity requirement
-static const double MIN_CONTRAST = 25.0;       // Increased contrast requirement
+static const int MIN_BALL_AREA = 200;          // Reduced minimum area for smaller balls
+static const int MAX_BALL_AREA = 50000;        // Increased maximum area for larger balls
+static const double MIN_CIRCULARITY = 0.5;     // Reduced circularity requirement (was too strict)
+static const double MIN_CONTRAST = 15.0;       // Reduced contrast requirement for low-light conditions
 static const int MIN_CONSECUTIVE_DETECTIONS = 3; // Require multiple consecutive detections
 static std::vector<cv::Point> recentBallPositions;
 static const int MAX_POSITION_HISTORY = 5;
@@ -1015,6 +1017,153 @@ static NSMutableDictionary *trackingStats = [NSMutableDictionary dictionary];
     return result;
 }
 
+// New unified ball detection method that tries multiple approaches
++ (NSDictionary * _Nullable)detectBallUnified:(UIImage *)frame {
+    if (!frame) {
+        NSLog(@"[OpenCV] ERROR: detectBallUnified called with nil frame");
+        return nil;
+    }
+    
+    cv::Mat cvFrame = uiImageToMat(frame);
+    if (cvFrame.empty()) {
+        NSLog(@"[OpenCV] ERROR: Failed to convert UIImage to cv::Mat");
+        return nil;
+    }
+    
+    NSLog(@"[OpenCV] detectBallUnified called with frame size: %dx%d", cvFrame.cols, cvFrame.rows);
+    
+    NSMutableDictionary *bestResult = [NSMutableDictionary dictionary];
+    double bestConfidence = 0.0;
+    NSString *bestMethod = @"none";
+    
+    // Method 1: Try soccer ball detection first (most reliable for soccer balls)
+    @try {
+        cv::Point ballCenter;
+        float ballRadius = 0.0f;
+        bool soccerBallFound = detectSoccerBall(cvFrame, ballCenter, ballRadius);
+        
+        if (soccerBallFound && ballCenter.x >= 0 && ballCenter.y >= 0) {
+            double confidence = 0.9; // High confidence for soccer ball detection
+            NSLog(@"[OpenCV] Soccer ball detection succeeded at (%d, %d) with radius %.1f", 
+                  ballCenter.x, ballCenter.y, ballRadius);
+            
+            if (confidence > bestConfidence) {
+                bestConfidence = confidence;
+                bestMethod = @"soccer";
+                bestResult[@"x"] = @(ballCenter.x);
+                bestResult[@"y"] = @(ballCenter.y);
+                bestResult[@"radius"] = @(ballRadius);
+                bestResult[@"isDetected"] = @(YES);
+                bestResult[@"confidence"] = @(confidence);
+                bestResult[@"method"] = @"soccer";
+            }
+        } else {
+            NSLog(@"[OpenCV] Soccer ball detection failed or invalid coordinates");
+        }
+    } @catch (NSException *exception) {
+        NSLog(@"[OpenCV] ERROR: Soccer ball detection failed with exception: %@", exception.reason);
+    }
+    
+    // Method 2: Try shape detection (HoughCircles) if soccer ball detection failed
+    if (bestConfidence < 0.7) {
+        @try {
+            cv::Point shapeBall = detectBallByShape(cvFrame);
+            if (shapeBall.x >= 0) {
+                double confidence = 0.6; // Medium confidence for shape detection
+                NSLog(@"[OpenCV] Shape detection succeeded at (%d, %d)", shapeBall.x, shapeBall.y);
+                
+                if (confidence > bestConfidence) {
+                    bestConfidence = confidence;
+                    bestMethod = @"shape";
+                    bestResult[@"x"] = @(shapeBall.x);
+                    bestResult[@"y"] = @(shapeBall.y);
+                    bestResult[@"radius"] = @(20.0); // Default radius for shape detection
+                    bestResult[@"isDetected"] = @(YES);
+                    bestResult[@"confidence"] = @(confidence);
+                    bestResult[@"method"] = @"shape";
+                }
+            } else {
+                NSLog(@"[OpenCV] Shape detection failed or invalid coordinates");
+            }
+        } @catch (NSException *exception) {
+            NSLog(@"[OpenCV] ERROR: Shape detection failed with exception: %@", exception.reason);
+        }
+    }
+    
+    // Method 3: Try color detection if other methods failed
+    if (bestConfidence < 0.5) {
+        @try {
+            cv::Point colorBall = detectBallByColor(cvFrame);
+            if (colorBall.x >= 0) {
+                double confidence = 0.4; // Lower confidence for color detection
+                NSLog(@"[OpenCV] Color detection succeeded at (%d, %d)", colorBall.x, colorBall.y);
+                
+                if (confidence > bestConfidence) {
+                    bestConfidence = confidence;
+                    bestMethod = @"color";
+                    bestResult[@"x"] = @(colorBall.x);
+                    bestResult[@"y"] = @(colorBall.y);
+                    bestResult[@"radius"] = @(15.0); // Default radius for color detection
+                    bestResult[@"isDetected"] = @(YES);
+                    bestResult[@"confidence"] = @(confidence);
+                    bestResult[@"method"] = @"color";
+                }
+            } else {
+                NSLog(@"[OpenCV] Color detection failed or invalid coordinates");
+            }
+        } @catch (NSException *exception) {
+            NSLog(@"[OpenCV] ERROR: Color detection failed with exception: %@", exception.reason);
+        }
+    }
+    
+    // Method 4: Try motion detection as last resort
+    if (bestConfidence < 0.3) {
+        @try {
+            cv::Mat gray;
+            cv::cvtColor(cvFrame, gray, cv::COLOR_BGR2GRAY);
+            // Initialize background subtractor for motion detection
+            static cv::Ptr<cv::BackgroundSubtractorMOG2> pMOG2 = cv::createBackgroundSubtractorMOG2();
+            cv::Point motionBall = detectBallByMotion(gray, pMOG2);
+            if (motionBall.x >= 0) {
+                double confidence = 0.3; // Lowest confidence for motion detection
+                NSLog(@"[OpenCV] Motion detection succeeded at (%d, %d)", motionBall.x, motionBall.y);
+                
+                if (confidence > bestConfidence) {
+                    bestConfidence = confidence;
+                    bestMethod = @"motion";
+                    bestResult[@"x"] = @(motionBall.x);
+                    bestResult[@"y"] = @(motionBall.y);
+                    bestResult[@"radius"] = @(10.0); // Default radius for motion detection
+                    bestResult[@"isDetected"] = @(YES);
+                    bestResult[@"confidence"] = @(confidence);
+                    bestResult[@"method"] = @"motion";
+                }
+            } else {
+                NSLog(@"[OpenCV] Motion detection failed or invalid coordinates");
+            }
+        } @catch (NSException *exception) {
+            NSLog(@"[OpenCV] ERROR: Motion detection failed with exception: %@", exception.reason);
+        }
+    }
+    
+    // Return result
+    if (bestConfidence > 0.0) {
+        NSLog(@"[OpenCV] Unified detection succeeded using %@ method with confidence %.3f", 
+              bestMethod, bestConfidence);
+        return bestResult;
+    } else {
+        NSLog(@"[OpenCV] Unified detection failed - no ball found with any method");
+        NSMutableDictionary *noResult = [NSMutableDictionary dictionary];
+        noResult[@"isDetected"] = @(NO);
+        noResult[@"confidence"] = @(0.0);
+        noResult[@"x"] = @(-1);
+        noResult[@"y"] = @(-1);
+        noResult[@"radius"] = @(0);
+        noResult[@"method"] = @"none";
+        return noResult;
+    }
+}
+
 @end
 
 // Helper function to convert UIImage to cv::Mat
@@ -1390,9 +1539,9 @@ static cv::Point detectBallByShape(const cv::Mat& frame) {
     cv::GaussianBlur(gray, gray, cv::Size(9, 9), 2);
     std::vector<cv::Vec3f> circles;
     cv::HoughCircles(gray, circles, cv::HOUGH_GRADIENT, 1,
-                     gray.rows/8,  // min distance between centers
-                     120, 40,      // tighter Canny thresholds
-                     8, 35);       // smaller radius range (if ball is small)
+                     gray.rows/6,   // min distance between centers (reduced for closer detection)
+                     100, 30,      // relaxed Canny thresholds for better detection
+                     5, 50);       // expanded radius range for various ball sizes
     
     if (!circles.empty()) {
         // Validate each circle more strictly
@@ -1406,8 +1555,8 @@ static cv::Point detectBallByShape(const cv::Mat& frame) {
                 continue;
             }
             
-            // Check radius constraints
-            if (radius < 8 || radius > 35) {
+            // Check radius constraints (expanded range for various ball sizes)
+            if (radius < 5 || radius > 50) {
                 continue;
             }
             

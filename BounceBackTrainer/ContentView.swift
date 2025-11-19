@@ -8,6 +8,7 @@ import PhotosUI
 struct ContentView: View {
     @State private var showBallDetection = false
     @State private var showFFTBallDetection = false
+    @State private var showMLPackageDetection = false
     @State private var inputURL: URL?
     @State private var outputURL: URL?
     @State private var showVideoPlayer = false
@@ -82,7 +83,7 @@ struct ContentView: View {
                         .foregroundColor(.white)
                         .cornerRadius(12)
                     }
-                    .onChange(of: selectedItem) { newItem in
+                    .onChange(of: selectedItem) { _, newItem in
                         Task {
                             if let data = try? await newItem?.loadTransferable(type: Data.self) {
                                 let tempURL = FileManager.default.temporaryDirectory
@@ -127,6 +128,24 @@ struct ContentView: View {
                     }
                     .sheet(isPresented: $showFFTBallDetection) {
                         FFTBallDetectionView()
+                    }
+
+                    // ML Package testing button
+                    Button(action: {
+                        showMLPackageDetection = true
+                    }) {
+                        HStack {
+                            Image(systemName: "target")
+                            Text("ML Package Ball Test")
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.orange)
+                        .foregroundColor(.white)
+                        .cornerRadius(12)
+                    }
+                    .sheet(isPresented: $showMLPackageDetection) {
+                        MLBallDetectionView()
                     }
                 }
                 .padding(.horizontal)
@@ -400,23 +419,18 @@ struct BallDetectionView: View {
                 isProcessing = true
                 detectionStats = "Frame: \(frameCount), Size: \(Int(frame.size.width))x\(Int(frame.size.height))"
                 
-                // Perform FFT-based ball detection
-                DispatchQueue.global(qos: .userInitiated).async {
+                // Add 2-second delay for better processing performance
+                DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + 2.0) {
                     let startTime = CFAbsoluteTimeGetCurrent()
                     
-                    // Use FFT-based ball detection
-                    let ballResult = OpenCVWrapper.detectBall(byFFT: frame)
+                    // Use unified ball detection (tries multiple methods automatically)
+                    let ballResult = OpenCVWrapper.detectBallUnified(frame)
                     
-                    // If FFT detection fails, try traditional methods
-                    var finalResult = ballResult
-                    if let isDetected = ballResult?["isDetected"] as? Bool, !isDetected {
-                        // Try traditional ball detection as fallback
-                        let traditionalResult = OpenCVWrapper.detectBall(inFrame: frame)
-                        if let traditionalDetected = traditionalResult?["isDetected"] as? Bool, traditionalDetected {
-                            finalResult = traditionalResult
-                            print("⚽ Fallback: Traditional ball detection succeeded")
-                        }
-                    }
+                    // FFT detection is commented out but implementation is preserved
+                    // let fftResult = OpenCVWrapper.detectBallByFFT(frame) // FFT method kept but not used
+                    
+                    // Use unified result directly
+                    let finalResult = ballResult
                     
                     // Temporal consistency check
                     var validatedResult = finalResult ?? [:]

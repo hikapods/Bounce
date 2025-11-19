@@ -246,6 +246,47 @@ For support and questions:
 - **Documentation**: Check the inline code documentation
 - **Community**: Join our development discussions
 
+## 📌 Recent Updates
+
+- Introduced a unified ball detection method (`detectBallUnified`) that sequentially tries soccer-specific, shape (Hough), color, and motion detection for better robustness.
+- Kept the FFT pipeline (`detectBallByFFT`) fully implemented, but commented out calls by default. You can re-enable where needed.
+- Added a 2-second processing delay in live camera processing to reduce CPU load and improve stability on device.
+- Tuned OpenCV thresholds (area, circularity, contrast) and relaxed HoughCircles parameters for better real-world performance.
+- Improved logging and error handling in the OpenCV bridge for easier debugging.
+
+## 🧭 Device Deployment (Recommended)
+
+OpenCV in this project is provided by the `OpenCV2` CocoaPod which ships iOS device binaries. Prefer deploying and testing on a physical iPhone.
+
+Steps:
+1. Connect your iPhone via USB.
+2. In Xcode, choose your iPhone as the run destination.
+3. Build (⌘B) and Run (⌘R).
+
+Terminal alternative:
+```bash
+xcrun xctrace list devices
+xcodebuild \
+  -workspace BounceBackTrainer.xcworkspace \
+  -scheme BounceBackTrainer \
+  -destination 'platform=iOS,id=<DEVICE_ID>' install
+```
+
+## 🧰 Troubleshooting
+
+- Pods_BounceBackTrainer not found
+  - Run `pod install`, open `BounceBackTrainer.xcworkspace` (not `.xcodeproj`)
+  - Clean build folder (Shift+⌘+K) and rebuild
+
+- Linker error about opencv2 built for iOS when building for iOS-simulator
+  - Use a physical device, or switch to a simulator-compatible OpenCV build
+
+- Bridging issues
+  - Ensure `BounceBackTrainer-Bridging-Header.h` imports "OpenCVWrapper.h"
+
+- Permissions
+  - `Info.plist` includes camera and photo library usage descriptions. Ensure you grant permissions at runtime.
+
 ## 🔄 Version History
 
 ### Current Version: 1.0

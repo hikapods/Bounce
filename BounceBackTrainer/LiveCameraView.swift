@@ -244,7 +244,9 @@ struct LiveCameraView: View {
             if frameSize != frame.size { frameSize = frame.size }
             liveFrame = frame
             guard true else { return } // Always process frames now
-            DispatchQueue.global(qos: .userInitiated).async {
+            
+            // Add 2-second delay for better processing performance
+            DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + 2.0) {
                 // Enhanced backend processing with performance monitoring
                 let performance = OpenCVWrapper.analyzeFramePerformance(frame) as? [AnyHashable: Any] ?? [:]
                 
@@ -266,25 +268,20 @@ struct LiveCameraView: View {
                 let ballDict = ballDetectionManager.detectedBall
                 let ball = ballDict ?? [:]
                 
-                // Enhanced ball detection using FFT when active
+                // Enhanced ball detection using unified method when active
                 var finalBallResult = ball
                 if ballDetectionActive {
                     DispatchQueue.global(qos: .userInitiated).async {
                         let startTime = CFAbsoluteTimeGetCurrent()
                         
-                        // Use FFT-based ball detection
-                        let fftBallResult = OpenCVWrapper.detectBall(byFFT: frame)
+                        // Use unified ball detection (tries multiple methods automatically)
+                        let unifiedBallResult = OpenCVWrapper.detectBallUnified(frame)
                         
-                        // If FFT detection fails, try traditional methods
-                        var validatedResult = fftBallResult
-                        if let isDetected = fftBallResult?["isDetected"] as? Bool, !isDetected {
-                            // Try traditional ball detection as fallback
-                            let traditionalResult = OpenCVWrapper.detectBall(inFrame: frame)
-                            if let traditionalDetected = traditionalResult?["isDetected"] as? Bool, traditionalDetected {
-                                validatedResult = traditionalResult
-                                print("⚽ Fallback: Traditional ball detection succeeded")
-                            }
-                        }
+                        // FFT detection is commented out but implementation is preserved
+                        // let fftBallResult = OpenCVWrapper.detectBallByFFT(frame) // FFT method kept but not used
+                        
+                        // Use unified result directly
+                        var validatedResult = unifiedBallResult
                         
                         // Temporal consistency check
                         if let isDetected = validatedResult?["isDetected"] as? Bool, isDetected,

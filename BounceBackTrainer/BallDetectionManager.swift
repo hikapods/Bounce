@@ -67,8 +67,8 @@ class BallDetectionManager: ObservableObject {
         }
         
         // Call OpenCV soccer ball detection
-        print("[BallDetection] Calling OpenCV detectSoccerBall...")
-        if let ballDetection = OpenCVWrapper.detectSoccerBall(frame) {
+        print("[BallDetection] Calling OpenCV detectBallUnified...")
+        if let ballDetection = OpenCVWrapper.detectBallUnified(frame) {
             print("[BallDetection] OpenCV returned: \(ballDetection)")
             let ball = ballDetection as? [AnyHashable: Any] ?? [:]
             
