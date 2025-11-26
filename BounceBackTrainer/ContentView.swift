@@ -5,6 +5,7 @@ import AVKit
 import UniformTypeIdentifiers
 import PhotosUI
 import CoreVideo
+import Darwin
 
 struct ContentView: View {
     // @State private var showBallDetection = false  // Ball Detection feature commented out
@@ -286,8 +287,10 @@ struct ContentView: View {
         }
     }
     
-    // Process video with ML ball detection (similar to LiveCameraView)
+    // Process video with ML ball detection (Optimized with AVAssetReader)
     private func processVideoWithMLDetection(inputURL: URL) {
+        logMemoryUsage(phase: "Before video processing")
+        
         DispatchQueue.global(qos: .userInitiated).async {
             let timestamp = Date()
             let formatter = DateFormatter()
@@ -297,39 +300,38 @@ struct ContentView: View {
             let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
             let outputURL = documentsPath.appendingPathComponent(filename)
             
-            // Remove existing file if present
             if FileManager.default.fileExists(atPath: outputURL.path) {
                 try? FileManager.default.removeItem(at: outputURL)
             }
             
-            // Create video asset
             let asset = AVAsset(url: inputURL)
             
-            // Use async loading for tracks (iOS 16+)
             Task {
                 do {
                     let tracks = try await asset.loadTracks(withMediaType: .video)
                     guard let videoTrack = tracks.first else {
                         DispatchQueue.main.async {
-                            errorMessage = "Failed to process video: No video track found"
-                            showError = true
-                            isProcessing = false
+                            self.errorMessage = "No video track found"
+                            self.showError = true
+                            self.isProcessing = false
                         }
                         return
                     }
                     
                     let videoSize = try await videoTrack.load(.naturalSize)
-                    let frameRate = videoTrack.nominalFrameRate
                     let duration = try await asset.load(.duration)
                     
-                    // Setup video writer
-                    guard let videoWriter = try? AVAssetWriter(outputURL: outputURL, fileType: .mp4) else {
-                        DispatchQueue.main.async {
-                            errorMessage = "Failed to create video writer"
-                            showError = true
-                            isProcessing = false
-                        }
-                        return
+                    // Setup Reader
+                    let reader = try AVAssetReader(asset: asset)
+                    let readerOutput = AVAssetReaderTrackOutput(track: videoTrack, outputSettings: [
+                        kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA
+                    ])
+                    readerOutput.alwaysCopiesSampleData = false
+                    reader.add(readerOutput)
+                    
+                    // Setup Writer
+                    guard let writer = try? AVAssetWriter(outputURL: outputURL, fileType: .mp4) else {
+                        throw NSError(domain: "App", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to create writer"])
                     }
                     
                     let videoSettings: [String: Any] = [
@@ -342,23 +344,11 @@ struct ContentView: View {
                         ]
                     ]
                     
-                    let videoWriterInput = AVAssetWriterInput(mediaType: .video, outputSettings: videoSettings)
-                    videoWriterInput.expectsMediaDataInRealTime = false
+                    let writerInput = AVAssetWriterInput(mediaType: .video, outputSettings: videoSettings)
+                    writerInput.expectsMediaDataInRealTime = false
                     
-                    guard videoWriter.canAdd(videoWriterInput) else {
-                        DispatchQueue.main.async {
-                            errorMessage = "Failed to add video input"
-                            showError = true
-                            isProcessing = false
-                        }
-                        return
-                    }
-                    
-                    videoWriter.add(videoWriterInput)
-                    
-                    // Create pixel buffer adaptor BEFORE starting writing session
                     let adaptor = AVAssetWriterInputPixelBufferAdaptor(
-                        assetWriterInput: videoWriterInput,
+                        assetWriterInput: writerInput,
                         sourcePixelBufferAttributes: [
                             kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
                             kCVPixelBufferWidthKey as String: Int(videoSize.width),
@@ -368,95 +358,134 @@ struct ContentView: View {
                         ]
                     )
                     
-                    // Now start writing
-                    videoWriter.startWriting()
-                    videoWriter.startSession(atSourceTime: .zero)
+                    if writer.canAdd(writerInput) {
+                        writer.add(writerInput)
+                    }
                     
-                    // Create image generator
-                    let imageGenerator = AVAssetImageGenerator(asset: asset)
-                    imageGenerator.requestedTimeToleranceBefore = .zero
-                    imageGenerator.requestedTimeToleranceAfter = .zero
+                    reader.startReading()
+                    writer.startWriting()
+                    writer.startSession(atSourceTime: .zero)
                     
-                    let timescale = Int32(600)
-                    let frameDuration = CMTime(value: 1, timescale: timescale)
-                    var currentTime = CMTime.zero
+                    // Processing Loop
+                    var ballPath: [CGPoint] = []
+                    let maxPathPoints = 100
+                    var lastValidDetection: MLBallDetection? = nil
+                    var lastValidCenter: CGPoint? = nil
+                    var framesWithoutDetection = 0
+                    let maxFramesWithoutDetection = 5
+                    var velocity: CGPoint = .zero
+                    
+                    let semaphore = DispatchSemaphore(value: 0)
                     var frameCount = 0
                     
-                    // Process each frame
-                    while currentTime < duration {
-                        autoreleasepool {
-                            // Generate frame image
-                            guard let cgImage = try? imageGenerator.copyCGImage(at: currentTime, actualTime: nil) else {
-                                currentTime = CMTimeAdd(currentTime, frameDuration)
-                                return
+                    
+                    while reader.status == .reading {
+                        guard let sampleBuffer = readerOutput.copyNextSampleBuffer() else {
+                            break
+                        }
+                        
+                        guard let readBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { continue }
+                        let timestamp = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
+                        
+                        // Detect
+                        var mlDetection: MLBallDetection? = nil
+                        MLBallDetector.shared.detectBall(in: readBuffer) { result in
+                            mlDetection = result
+                            semaphore.signal()
+                        }
+                        _ = semaphore.wait(timeout: .now() + 0.2)
+                        
+                        // Logic for path/prediction (same as before)
+                        var detectionToUse: MLBallDetection? = nil
+                        var centerPoint: CGPoint? = nil
+                        
+                        if let detection = mlDetection {
+                            let bbox = detection.boundingBox
+                            let centerX = (bbox.origin.x + bbox.width / 2) * videoSize.width
+                            let centerY = (bbox.origin.y + bbox.height / 2) * videoSize.height
+                            let currentCenter = CGPoint(x: centerX, y: centerY)
+                            
+                            if let lastCenter = lastValidCenter {
+                                let frameVelocity = CGPoint(x: currentCenter.x - lastCenter.x, y: currentCenter.y - lastCenter.y)
+                                velocity = CGPoint(x: velocity.x * 0.7 + frameVelocity.x * 0.3, y: velocity.y * 0.7 + frameVelocity.y * 0.3)
                             }
                             
-                            let uiImage = UIImage(cgImage: cgImage)
+                            centerPoint = currentCenter
+                            detectionToUse = detection
+                            lastValidDetection = detection
+                            lastValidCenter = currentCenter
+                            framesWithoutDetection = 0
                             
-                            // Detect ball using ML
-                            var processedImage = uiImage
-                            let semaphore = DispatchSemaphore(value: 0)
-                            var detectionCompleted = false
-                            
-                            MLBallDetector.shared.detectBall(in: uiImage) { mlDetection in
-                                if let detection = mlDetection {
-                                    // Draw bounding box on image
-                                    processedImage = self.drawBoundingBox(on: uiImage, detection: detection)
-                                }
-                                detectionCompleted = true
-                                semaphore.signal()
+                            if detection.confidence >= 0.3 {
+                                ballPath.append(currentCenter)
+                                if ballPath.count > maxPathPoints { ballPath.removeFirst() }
                             }
-                            
-                            // Wait for detection with timeout (0.5 seconds max per frame)
-                            let timeoutResult = semaphore.wait(timeout: .now() + 0.5)
-                            if timeoutResult == .timedOut {
-                                print("⚠️ ML detection timeout for frame \(frameCount), using original image")
-                            }
-                            
-                            // Convert to pixel buffer and append
-                            if let pixelBuffer = self.imageToPixelBuffer(processedImage, size: videoSize) {
-                                // Wait for writer to be ready
-                                while !videoWriterInput.isReadyForMoreMediaData && videoWriter.status == .writing {
-                                    Thread.sleep(forTimeInterval: 0.01)
-                                }
+                        } else {
+                            framesWithoutDetection += 1
+                            if framesWithoutDetection <= maxFramesWithoutDetection,
+                               let lastDetection = lastValidDetection,
+                               let lastCenter = lastValidCenter {
                                 
-                                // Only append if writer is still writing
-                                if videoWriter.status == .writing {
-                                    adaptor.append(pixelBuffer, withPresentationTime: currentTime)
+                                let predictedCenter = CGPoint(x: lastCenter.x + velocity.x, y: lastCenter.y + velocity.y)
+                                let bbox = lastDetection.boundingBox
+                                let predictedX = (predictedCenter.x / videoSize.width) - (bbox.width / 2)
+                                let predictedY = (predictedCenter.y / videoSize.height) - (bbox.height / 2)
+                                
+                                let predictedBbox = CGRect(x: max(0, min(1, predictedX)), y: max(0, min(1, predictedY)), width: bbox.width, height: bbox.height)
+                                let decayFactor = Float(1.0 - (Double(framesWithoutDetection) / Double(maxFramesWithoutDetection)) * 0.3)
+                                let predictedConfidence = lastDetection.confidence * decayFactor
+                                
+                                detectionToUse = MLBallDetection(boundingBox: predictedBbox, confidence: predictedConfidence, label: lastDetection.label)
+                                centerPoint = predictedCenter
+                                lastValidCenter = predictedCenter
+                                
+                                if predictedConfidence >= 0.2 {
+                                    ballPath.append(predictedCenter)
+                                    if ballPath.count > maxPathPoints { ballPath.removeFirst() }
                                 }
                             }
-                            
-                            currentTime = CMTimeAdd(currentTime, frameDuration)
-                            frameCount += 1
-                            
-                            // Update progress every 30 frames
-                            if frameCount % 30 == 0 {
-                                let progress = currentTime.seconds / duration.seconds
-                                print("Processing video: \(Int(progress * 100))%")
+                        }
+                        
+                        // Write to output
+                        while !writerInput.isReadyForMoreMediaData && writer.status == .writing {
+                            Thread.sleep(forTimeInterval: 0.001)
+                        }
+                        
+                        if writer.status == .writing {
+                            if let writeBuffer = self.createPixelBuffer(from: adaptor) {
+                                // Copy readBuffer to writeBuffer and Draw Overlay
+                                self.drawOverlay(source: readBuffer, dest: writeBuffer, detection: detectionToUse, path: ballPath, videoSize: videoSize)
+                                adaptor.append(writeBuffer, withPresentationTime: timestamp)
+                            }
+                        }
+                        
+                        frameCount += 1
+                        if frameCount % 10 == 0 {
+                            let progress = min(timestamp.seconds / duration.seconds, 1.0)
+                            DispatchQueue.main.async {
+                                print("📊 Processing: \(Int(progress * 100))% (\(frameCount) frames)")
                             }
                         }
                     }
                     
-                    // Finish writing
-                    videoWriterInput.markAsFinished()
-                    videoWriter.finishWriting {
+                    writerInput.markAsFinished()
+                    writer.finishWriting {
+                        self.logMemoryUsage(phase: "After video processing")
                         DispatchQueue.main.async {
                             self.isProcessing = false
-                            
-                            if videoWriter.status == .completed {
+                            if writer.status == .completed {
                                 self.outputURL = outputURL
-                                print("✅ Video processed successfully: \(outputURL.lastPathComponent)")
+                                print("✅ Video processed successfully")
                             } else {
-                                let errorMsg = videoWriter.error?.localizedDescription ?? "Unknown error"
-                                print("❌ Video processing failed: \(errorMsg)")
-                                self.errorMessage = "Failed to process video: \(errorMsg)"
+                                self.errorMessage = "Processing failed: \(writer.error?.localizedDescription ?? "Unknown")"
                                 self.showError = true
                             }
                         }
                     }
+                    
                 } catch {
                     DispatchQueue.main.async {
-                        self.errorMessage = "Failed to load video: \(error.localizedDescription)"
+                        self.errorMessage = "Error: \(error.localizedDescription)"
                         self.showError = true
                         self.isProcessing = false
                     }
@@ -465,95 +494,118 @@ struct ContentView: View {
         }
     }
     
-    // Draw bounding box on image (same as LiveCameraView)
-    private func drawBoundingBox(on image: UIImage, detection: MLBallDetection) -> UIImage {
-        let size = image.size
-        let scale = image.scale
-        
-        UIGraphicsBeginImageContextWithOptions(size, false, scale)
-        guard let context = UIGraphicsGetCurrentContext() else { return image }
-        
-        // Draw original image
-        image.draw(in: CGRect(origin: .zero, size: size))
-        
-        // Convert normalized bounding box to pixel coordinates
-        let bbox = detection.boundingBox
-        let rect = CGRect(
-            x: bbox.origin.x * size.width,
-            y: bbox.origin.y * size.height,
-            width: bbox.width * size.width,
-            height: bbox.height * size.height
-        )
-        
-        // Draw bounding box
-        context.setStrokeColor(UIColor.blue.cgColor)
-        context.setLineWidth(4.0)
-        context.stroke(rect)
-        
-        // Draw confidence label
-        let confidenceText = String(format: "%.0f%%", detection.confidence * 100)
-        let attributes: [NSAttributedString.Key: Any] = [
-            .font: UIFont.boldSystemFont(ofSize: 20),
-            .foregroundColor: UIColor.blue,
-            .backgroundColor: UIColor.white.withAlphaComponent(0.8)
-        ]
-        
-        let textRect = CGRect(x: rect.origin.x, y: rect.origin.y - 30, width: 100, height: 30)
-        confidenceText.draw(in: textRect, withAttributes: attributes)
-        
-        guard let newImage = UIGraphicsGetImageFromCurrentImageContext() else {
-            UIGraphicsEndImageContext()
-            return image
-        }
-        
-        UIGraphicsEndImageContext()
-        return newImage
+    private func createPixelBuffer(from adaptor: AVAssetWriterInputPixelBufferAdaptor) -> CVPixelBuffer? {
+        var pixelBuffer: CVPixelBuffer?
+        let status = CVPixelBufferPoolCreatePixelBuffer(kCFAllocatorDefault, adaptor.pixelBufferPool!, &pixelBuffer)
+        return status == kCVReturnSuccess ? pixelBuffer : nil
     }
     
-    // Convert UIImage to CVPixelBuffer
-    private func imageToPixelBuffer(_ image: UIImage, size: CGSize) -> CVPixelBuffer? {
-        let attrs: [CFString: Any] = [
-            kCVPixelBufferCGImageCompatibilityKey: true,
-            kCVPixelBufferCGBitmapContextCompatibilityKey: true,
-            kCVPixelBufferWidthKey: Int(size.width),
-            kCVPixelBufferHeightKey: Int(size.height),
-            kCVPixelBufferPixelFormatTypeKey: kCVPixelFormatType_32ARGB
-        ]
-        
-        var pixelBuffer: CVPixelBuffer?
-        let status = CVPixelBufferCreate(
-            kCFAllocatorDefault,
-            Int(size.width),
-            Int(size.height),
-            kCVPixelFormatType_32ARGB,
-            attrs as CFDictionary,
-            &pixelBuffer
-        )
-        
-        guard status == kCVReturnSuccess, let buffer = pixelBuffer else {
-            return nil
+    private func drawOverlay(source: CVPixelBuffer, dest: CVPixelBuffer, detection: MLBallDetection?, path: [CGPoint], videoSize: CGSize) {
+        // Lock buffers
+        CVPixelBufferLockBaseAddress(source, .readOnly)
+        CVPixelBufferLockBaseAddress(dest, [])
+        defer {
+            CVPixelBufferUnlockBaseAddress(source, .readOnly)
+            CVPixelBufferUnlockBaseAddress(dest, [])
         }
         
-        CVPixelBufferLockBaseAddress(buffer, [])
-        defer { CVPixelBufferUnlockBaseAddress(buffer, []) }
+        let width = CVPixelBufferGetWidth(dest)
+        let height = CVPixelBufferGetHeight(dest)
         
-        let context = CGContext(
-            data: CVPixelBufferGetBaseAddress(buffer),
-            width: Int(size.width),
-            height: Int(size.height),
+        guard let context = CGContext(
+            data: CVPixelBufferGetBaseAddress(dest),
+            width: width,
+            height: height,
             bitsPerComponent: 8,
-            bytesPerRow: CVPixelBufferGetBytesPerRow(buffer),
+            bytesPerRow: CVPixelBufferGetBytesPerRow(dest),
             space: CGColorSpaceCreateDeviceRGB(),
-            bitmapInfo: CGImageAlphaInfo.noneSkipFirst.rawValue
-        )
+            bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue
+        ) else { return }
         
-        guard let ctx = context, let cgImage = image.cgImage else {
-            return nil
+        // Draw source image into dest context
+        if let sourceBase = CVPixelBufferGetBaseAddress(source) {
+            let sourceContext = CGContext(
+                data: sourceBase,
+                width: width,
+                height: height,
+                bitsPerComponent: 8,
+                bytesPerRow: CVPixelBufferGetBytesPerRow(source),
+                space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue
+            )
+            
+            if let sourceImage = sourceContext?.makeImage() {
+                context.draw(sourceImage, in: CGRect(x: 0, y: 0, width: width, height: height))
+            }
         }
         
-        ctx.draw(cgImage, in: CGRect(origin: .zero, size: size))
+        // Draw Path
+        if path.count > 1 {
+            context.setStrokeColor(UIColor.green.withAlphaComponent(0.7).cgColor)
+            context.setLineWidth(3.0)
+            context.setLineCap(.round)
+            context.setLineJoin(.round)
+            
+            context.beginPath()
+            context.move(to: path[0])
+            for i in 1..<path.count {
+                context.addLine(to: path[i])
+            }
+            context.strokePath()
+            
+            context.setFillColor(UIColor.green.withAlphaComponent(0.8).cgColor)
+            for point in path {
+                let circleRect = CGRect(x: point.x - 3, y: point.y - 3, width: 6, height: 6)
+                context.fillEllipse(in: circleRect)
+            }
+        }
         
-        return buffer
+        // Draw Detection
+        if let detection = detection {
+            let bbox = detection.boundingBox
+            let rect = CGRect(
+                x: bbox.origin.x * CGFloat(width),
+                y: bbox.origin.y * CGFloat(height),
+                width: bbox.width * CGFloat(width),
+                height: bbox.height * CGFloat(height)
+            )
+            
+            context.setStrokeColor(UIColor.blue.cgColor)
+            context.setLineWidth(4.0)
+            context.stroke(rect)
+            
+            UIGraphicsPushContext(context)
+            let confidenceText = String(format: "%.0f%%", detection.confidence * 100)
+            let attributes: [NSAttributedString.Key: Any] = [
+                .font: UIFont.boldSystemFont(ofSize: 20),
+                .foregroundColor: UIColor.blue,
+                .backgroundColor: UIColor.white.withAlphaComponent(0.8)
+            ]
+            (confidenceText as NSString).draw(at: CGPoint(x: rect.origin.x, y: rect.origin.y - 30), withAttributes: attributes)
+            UIGraphicsPopContext()
+        }
+    }
+    
+    // Memory profiling function
+    private func logMemoryUsage(phase: String) {
+        var info = mach_task_basic_info()
+        var count = mach_msg_type_number_t(MemoryLayout<mach_task_basic_info>.size)/4
+        
+        let kerr: kern_return_t = withUnsafeMutablePointer(to: &info) {
+            $0.withMemoryRebound(to: integer_t.self, capacity: 1) {
+                task_info(mach_task_self_,
+                         task_flavor_t(MACH_TASK_BASIC_INFO),
+                         $0,
+                         &count)
+            }
+        }
+        
+        if kerr == KERN_SUCCESS {
+            let usedMemory = Double(info.resident_size) / 1024.0 / 1024.0 // Convert to MB
+            print("📊 Memory [\(phase)]: \(String(format: "%.2f", usedMemory)) MB")
+        } else {
+            print("⚠️ Failed to get memory info: \(kerr)")
+        }
     }
 }
 
