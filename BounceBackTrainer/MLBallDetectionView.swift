@@ -7,6 +7,7 @@ struct MLBallDetectionView: View {
     @State private var detectionStatus = "Waiting for camera..."
     @State private var isRunningInference = false
     @State private var modelReady = MLBallDetector.shared.isReady
+    @State private var lastDetectionTime = Date.distantPast
     
     var body: some View {
         VStack(spacing: 16) {
@@ -105,6 +106,9 @@ struct MLBallDetectionView: View {
                 .font(.headline)
             if let detection = detection {
                 Text("Label: \(detection.label)")
+                // DEBUG: Show class index if possible, or just rely on label
+                // Text("Class Index: ...") // We don't have index in struct yet, but label should be "classN"
+
                 Text(String(format: "Confidence: %.2f", detection.confidence))
                 Text(String(format: "Bounding Box: x %.2f  y %.2f  w %.2f  h %.2f",
                             detection.boundingBox.origin.x,
@@ -121,7 +125,12 @@ struct MLBallDetectionView: View {
     private func configureCamera() {
         cameraManager.onFrameProcessed = { image, _ in
             latestFrame = image
-            guard !isRunningInference else { return }
+            
+            let now = Date()
+            guard !isRunningInference,
+                  now.timeIntervalSince(lastDetectionTime) >= 0.1 else { return }
+            
+            lastDetectionTime = now
             runDetection(on: image)
         }
         cameraManager.startSession()
@@ -136,7 +145,7 @@ struct MLBallDetectionView: View {
     private func runDetection(on image: UIImage) {
         guard modelReady else { return }
         isRunningInference = true
-        detectionStatus = "Processing frame..."
+        // detectionStatus = "Processing frame..." // Removed to prevent flickering
         
         MLBallDetector.shared.detectBall(in: image) { result in
             detection = result

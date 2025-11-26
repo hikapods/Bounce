@@ -11,6 +11,7 @@
 		5BF832A41D2955AC0C207EB8 /* Pods_BounceBackTrainer.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A2F35CBA77715C0AC251852B /* Pods_BounceBackTrainer.framework */; };
 		7EDA19333FB2F79B54AC52AA /* Pods_BounceBackTrainerTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 461C7B74EAEA34259CA40575 /* Pods_BounceBackTrainerTests.framework */; };
 		909F96A06A1CC6ED4AA0362C /* Pods_BounceBackTrainer_BounceBackTrainerUITests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7D2DF5D54DA518C0B6E44C79 /* Pods_BounceBackTrainer_BounceBackTrainerUITests.framework */; };
+		E0F3A85C2F303B6B008C88F7 /* best.mlpackage in Resources */ = {isa = PBXBuildFile; fileRef = E0F3A85B2F303B6B008C88F7 /* best.mlpackage */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -65,6 +66,7 @@
 		96D7E4930F8C50F4793CE5F5 /* Pods-BounceBackTrainerTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-BounceBackTrainerTests.release.xcconfig"; path = "Target Support Files/Pods-BounceBackTrainerTests/Pods-BounceBackTrainerTests.release.xcconfig"; sourceTree = "<group>"; };
 		A2F35CBA77715C0AC251852B /* Pods_BounceBackTrainer.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_BounceBackTrainer.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		B645EC5707B809337F3AC2C0 /* Pods-BounceBackTrainer-BounceBackTrainerUITests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-BounceBackTrainer-BounceBackTrainerUITests.debug.xcconfig"; path = "Target Support Files/Pods-BounceBackTrainer-BounceBackTrainerUITests/Pods-BounceBackTrainer-BounceBackTrainerUITests.debug.xcconfig"; sourceTree = "<group>"; };
+		E0F3A85B2F303B6B008C88F7 /* best.mlpackage */ = {isa = PBXFileReference; lastKnownFileType = file.mlpackage; path = best.mlpackage; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -148,6 +150,7 @@
 				40B8B7F62DC7280B00C7397B /* BounceBackTrainerUITests */,
 				40B8B8062DC72C2000C7397B /* Frameworks */,
 				40B8B7DC2DC7280900C7397B /* Products */,
+				E0F3A85B2F303B6B008C88F7 /* best.mlpackage */,
 				04CCE6FE47E4A2582775EFD5 /* Pods */,
 			);
 			sourceTree = "<group>";
@@ -309,6 +312,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E0F3A85C2F303B6B008C88F7 /* best.mlpackage in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

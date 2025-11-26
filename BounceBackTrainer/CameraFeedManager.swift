@@ -10,6 +10,7 @@ class CameraFeedManager: NSObject, ObservableObject {
     private let videoOutput = AVCaptureVideoDataOutput()
     private let sessionQueue = DispatchQueue(label: "session.queue")
     private var videoDeviceInput: AVCaptureDeviceInput?
+    private let ciContext = CIContext() // Reusable context
     
     // Frame processing callback
     var onFrameProcessed: ((UIImage, CGRect) -> Void)?
@@ -100,17 +101,28 @@ class CameraFeedManager: NSObject, ObservableObject {
 extension CameraFeedManager: AVCaptureVideoDataOutputSampleBufferDelegate {
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
         guard let imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
-            print("No image buffer in sampleBuffer!")
-            return }
-        let ciImage = CIImage(cvPixelBuffer: imageBuffer)
-        let context = CIContext()
-        guard let cgImage = context.createCGImage(ciImage, from: ciImage.extent) else { return }
-        // Try .right for portrait orientation
-        let uiImage = UIImage(cgImage: cgImage, scale: 1.0, orientation: .right)
-        let fixedImage = imageWithFixedOrientation(uiImage)
-        print("Frame delivered to onFrameProcessed, size: \(fixedImage.size)")
-        DispatchQueue.main.async {
-            self.onFrameProcessed?(fixedImage, self.currentGoalRegion)
+            return  // Removed print to reduce memory overhead
+        }
+        
+        // Process on background queue to avoid blocking camera
+        sessionQueue.async { [weak self] in
+            guard let self = self else { return }
+            
+            let ciImage = CIImage(cvPixelBuffer: imageBuffer)
+            // Use the reused context
+            guard let cgImage = self.ciContext.createCGImage(ciImage, from: ciImage.extent) else { return }
+            
+            // Create UIImage with proper orientation
+            let uiImage = UIImage(cgImage: cgImage, scale: 1.0, orientation: .right)
+            let fixedImage = self.imageWithFixedOrientation(uiImage)
+            
+            // Release cgImage immediately after creating UIImage
+            // UIImage retains what it needs
+            
+            // Callback on main thread
+            DispatchQueue.main.async { [weak self] in
+                self?.onFrameProcessed?(fixedImage, self?.currentGoalRegion ?? .zero)
+            }
         }
     }
 } 

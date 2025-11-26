@@ -15,7 +15,7 @@ final class MLBallDetector {
     private let model: MLModel?
     private let processingQueue = DispatchQueue(label: "com.bouncebacktrainer.mlball", qos: .userInitiated)
     private let targetLabels: Set<String> = ["ball", "soccer", "class0"]
-    private let minimumConfidence: Float = 0.35
+    private let minimumConfidence: Float = 0.75
     
     private init() {
         let configuration = MLModelConfiguration()
@@ -141,6 +141,17 @@ final class MLBallDetector {
                 height: CGFloat(height)
             ).clampedToUnit()
             
+            // Aspect Ratio Check
+            // A ball should be roughly square (1:1 ratio).
+            // We allow some deviation (e.g., +/- 20%) to account for perspective/distortion.
+            let aspectRatio = rect.width / rect.height
+            let maxDeviation: CGFloat = 0.25 // Allow 0.75 to 1.25
+            
+            guard abs(aspectRatio - 1.0) <= maxDeviation else {
+                print("DEBUG: Filtered out \(label) due to aspect ratio: \(String(format: "%.2f", aspectRatio))")
+                continue
+            }
+            
             let detection = MLBallDetection(
                 boundingBox: rect,
                 confidence: bestConfidence,
@@ -164,8 +175,12 @@ final class MLBallDetector {
     }
     
     private func isBallClass(label: String, classIndex: Int) -> Bool {
-        if targetLabels.contains(label.lowercased()) { return true }
-        return classIndex == 0
+        // DEBUG: Accept ALL classes to see what the model is detecting
+        print("DEBUG: Detected class \(classIndex) (\(label))")
+        return true
+        // Original logic:
+        // if targetLabels.contains(label.lowercased()) { return true }
+        // return classIndex == 0
     }
 }
 

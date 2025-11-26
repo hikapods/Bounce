@@ -4,10 +4,11 @@ import UIKit
 import AVKit
 import UniformTypeIdentifiers
 import PhotosUI
+import CoreVideo
 
 struct ContentView: View {
-    @State private var showBallDetection = false
-    @State private var showFFTBallDetection = false
+    // @State private var showBallDetection = false  // Ball Detection feature commented out
+    // @State private var showFFTBallDetection = false  // FFT feature commented out
     @State private var showMLPackageDetection = false
     @State private var inputURL: URL?
     @State private var outputURL: URL?
@@ -94,7 +95,8 @@ struct ContentView: View {
                         }
                     }
 
-                    // Blue Ball Detection button
+                    // Blue Ball Detection button - commented out
+                    /*
                     Button(action: {
                         showBallDetection = true
                     }) {
@@ -111,8 +113,10 @@ struct ContentView: View {
                     .sheet(isPresented: $showBallDetection) {
                         BallDetectionView()
                     }
+                    */
 
                     // Purple FFT Ball Detection button
+                    /*
                     Button(action: {
                         showFFTBallDetection = true
                     }) {
@@ -129,6 +133,7 @@ struct ContentView: View {
                     .sheet(isPresented: $showFFTBallDetection) {
                         FFTBallDetectionView()
                     }
+                    */
 
                     // ML Package testing button
                     Button(action: {
@@ -160,26 +165,9 @@ struct ContentView: View {
                 Button(action: {
                     guard let input = inputURL else { return }
                     isProcessing = true
-
-                    let output = FileManager.default.temporaryDirectory
-                        .appendingPathComponent("analyzed_output.avi")
-
-                    // Debug: Check if file exists
-                    print("Input URL: \(input.path)")
-                    print("File exists: \(FileManager.default.fileExists(atPath: input.path))")
-
-                    // No need for securityScopedResource for temp file
-                    if FileManager.default.fileExists(atPath: input.path) {
-                        print("Analyzing: \(input.path)")
-                        OpenCVWrapper.analyzeVideo(input.path, outputPath: output.path)
-                        print("Output saved to: \(output.path)")
-                        outputURL = output
-                        isProcessing = false
-                    } else {
-                        errorMessage = "Failed to access input video"
-                        showError = true
-                        isProcessing = false
-                    }
+                    
+                    // Process video with ML ball detection
+                    processVideoWithMLDetection(inputURL: input)
                 }) {
                     HStack {
                         if isProcessing {
@@ -297,9 +285,279 @@ struct ContentView: View {
             }
         }
     }
+    
+    // Process video with ML ball detection (similar to LiveCameraView)
+    private func processVideoWithMLDetection(inputURL: URL) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let timestamp = Date()
+            let formatter = DateFormatter()
+            formatter.dateFormat = "yyyyMMdd_HHmmss"
+            let filename = "analyzed_ball_detection_\(formatter.string(from: timestamp)).mp4"
+            
+            let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            let outputURL = documentsPath.appendingPathComponent(filename)
+            
+            // Remove existing file if present
+            if FileManager.default.fileExists(atPath: outputURL.path) {
+                try? FileManager.default.removeItem(at: outputURL)
+            }
+            
+            // Create video asset
+            let asset = AVAsset(url: inputURL)
+            
+            // Use async loading for tracks (iOS 16+)
+            Task {
+                do {
+                    let tracks = try await asset.loadTracks(withMediaType: .video)
+                    guard let videoTrack = tracks.first else {
+                        DispatchQueue.main.async {
+                            errorMessage = "Failed to process video: No video track found"
+                            showError = true
+                            isProcessing = false
+                        }
+                        return
+                    }
+                    
+                    let videoSize = try await videoTrack.load(.naturalSize)
+                    let frameRate = videoTrack.nominalFrameRate
+                    let duration = try await asset.load(.duration)
+                    
+                    // Setup video writer
+                    guard let videoWriter = try? AVAssetWriter(outputURL: outputURL, fileType: .mp4) else {
+                        DispatchQueue.main.async {
+                            errorMessage = "Failed to create video writer"
+                            showError = true
+                            isProcessing = false
+                        }
+                        return
+                    }
+                    
+                    let videoSettings: [String: Any] = [
+                        AVVideoCodecKey: AVVideoCodecType.h264,
+                        AVVideoWidthKey: Int(videoSize.width),
+                        AVVideoHeightKey: Int(videoSize.height),
+                        AVVideoCompressionPropertiesKey: [
+                            AVVideoAverageBitRateKey: 6000000,
+                            AVVideoProfileLevelKey: AVVideoProfileLevelH264HighAutoLevel
+                        ]
+                    ]
+                    
+                    let videoWriterInput = AVAssetWriterInput(mediaType: .video, outputSettings: videoSettings)
+                    videoWriterInput.expectsMediaDataInRealTime = false
+                    
+                    guard videoWriter.canAdd(videoWriterInput) else {
+                        DispatchQueue.main.async {
+                            errorMessage = "Failed to add video input"
+                            showError = true
+                            isProcessing = false
+                        }
+                        return
+                    }
+                    
+                    videoWriter.add(videoWriterInput)
+                    
+                    // Create pixel buffer adaptor BEFORE starting writing session
+                    let adaptor = AVAssetWriterInputPixelBufferAdaptor(
+                        assetWriterInput: videoWriterInput,
+                        sourcePixelBufferAttributes: [
+                            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
+                            kCVPixelBufferWidthKey as String: Int(videoSize.width),
+                            kCVPixelBufferHeightKey as String: Int(videoSize.height),
+                            kCVPixelBufferCGImageCompatibilityKey as String: true,
+                            kCVPixelBufferCGBitmapContextCompatibilityKey as String: true
+                        ]
+                    )
+                    
+                    // Now start writing
+                    videoWriter.startWriting()
+                    videoWriter.startSession(atSourceTime: .zero)
+                    
+                    // Create image generator
+                    let imageGenerator = AVAssetImageGenerator(asset: asset)
+                    imageGenerator.requestedTimeToleranceBefore = .zero
+                    imageGenerator.requestedTimeToleranceAfter = .zero
+                    
+                    let timescale = Int32(600)
+                    let frameDuration = CMTime(value: 1, timescale: timescale)
+                    var currentTime = CMTime.zero
+                    var frameCount = 0
+                    
+                    // Process each frame
+                    while currentTime < duration {
+                        autoreleasepool {
+                            // Generate frame image
+                            guard let cgImage = try? imageGenerator.copyCGImage(at: currentTime, actualTime: nil) else {
+                                currentTime = CMTimeAdd(currentTime, frameDuration)
+                                return
+                            }
+                            
+                            let uiImage = UIImage(cgImage: cgImage)
+                            
+                            // Detect ball using ML
+                            var processedImage = uiImage
+                            let semaphore = DispatchSemaphore(value: 0)
+                            var detectionCompleted = false
+                            
+                            MLBallDetector.shared.detectBall(in: uiImage) { mlDetection in
+                                if let detection = mlDetection {
+                                    // Draw bounding box on image
+                                    processedImage = self.drawBoundingBox(on: uiImage, detection: detection)
+                                }
+                                detectionCompleted = true
+                                semaphore.signal()
+                            }
+                            
+                            // Wait for detection with timeout (0.5 seconds max per frame)
+                            let timeoutResult = semaphore.wait(timeout: .now() + 0.5)
+                            if timeoutResult == .timedOut {
+                                print("⚠️ ML detection timeout for frame \(frameCount), using original image")
+                            }
+                            
+                            // Convert to pixel buffer and append
+                            if let pixelBuffer = self.imageToPixelBuffer(processedImage, size: videoSize) {
+                                // Wait for writer to be ready
+                                while !videoWriterInput.isReadyForMoreMediaData && videoWriter.status == .writing {
+                                    Thread.sleep(forTimeInterval: 0.01)
+                                }
+                                
+                                // Only append if writer is still writing
+                                if videoWriter.status == .writing {
+                                    adaptor.append(pixelBuffer, withPresentationTime: currentTime)
+                                }
+                            }
+                            
+                            currentTime = CMTimeAdd(currentTime, frameDuration)
+                            frameCount += 1
+                            
+                            // Update progress every 30 frames
+                            if frameCount % 30 == 0 {
+                                let progress = currentTime.seconds / duration.seconds
+                                print("Processing video: \(Int(progress * 100))%")
+                            }
+                        }
+                    }
+                    
+                    // Finish writing
+                    videoWriterInput.markAsFinished()
+                    videoWriter.finishWriting {
+                        DispatchQueue.main.async {
+                            self.isProcessing = false
+                            
+                            if videoWriter.status == .completed {
+                                self.outputURL = outputURL
+                                print("✅ Video processed successfully: \(outputURL.lastPathComponent)")
+                            } else {
+                                let errorMsg = videoWriter.error?.localizedDescription ?? "Unknown error"
+                                print("❌ Video processing failed: \(errorMsg)")
+                                self.errorMessage = "Failed to process video: \(errorMsg)"
+                                self.showError = true
+                            }
+                        }
+                    }
+                } catch {
+                    DispatchQueue.main.async {
+                        self.errorMessage = "Failed to load video: \(error.localizedDescription)"
+                        self.showError = true
+                        self.isProcessing = false
+                    }
+                }
+            }
+        }
+    }
+    
+    // Draw bounding box on image (same as LiveCameraView)
+    private func drawBoundingBox(on image: UIImage, detection: MLBallDetection) -> UIImage {
+        let size = image.size
+        let scale = image.scale
+        
+        UIGraphicsBeginImageContextWithOptions(size, false, scale)
+        guard let context = UIGraphicsGetCurrentContext() else { return image }
+        
+        // Draw original image
+        image.draw(in: CGRect(origin: .zero, size: size))
+        
+        // Convert normalized bounding box to pixel coordinates
+        let bbox = detection.boundingBox
+        let rect = CGRect(
+            x: bbox.origin.x * size.width,
+            y: bbox.origin.y * size.height,
+            width: bbox.width * size.width,
+            height: bbox.height * size.height
+        )
+        
+        // Draw bounding box
+        context.setStrokeColor(UIColor.blue.cgColor)
+        context.setLineWidth(4.0)
+        context.stroke(rect)
+        
+        // Draw confidence label
+        let confidenceText = String(format: "%.0f%%", detection.confidence * 100)
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: UIFont.boldSystemFont(ofSize: 20),
+            .foregroundColor: UIColor.blue,
+            .backgroundColor: UIColor.white.withAlphaComponent(0.8)
+        ]
+        
+        let textRect = CGRect(x: rect.origin.x, y: rect.origin.y - 30, width: 100, height: 30)
+        confidenceText.draw(in: textRect, withAttributes: attributes)
+        
+        guard let newImage = UIGraphicsGetImageFromCurrentImageContext() else {
+            UIGraphicsEndImageContext()
+            return image
+        }
+        
+        UIGraphicsEndImageContext()
+        return newImage
+    }
+    
+    // Convert UIImage to CVPixelBuffer
+    private func imageToPixelBuffer(_ image: UIImage, size: CGSize) -> CVPixelBuffer? {
+        let attrs: [CFString: Any] = [
+            kCVPixelBufferCGImageCompatibilityKey: true,
+            kCVPixelBufferCGBitmapContextCompatibilityKey: true,
+            kCVPixelBufferWidthKey: Int(size.width),
+            kCVPixelBufferHeightKey: Int(size.height),
+            kCVPixelBufferPixelFormatTypeKey: kCVPixelFormatType_32ARGB
+        ]
+        
+        var pixelBuffer: CVPixelBuffer?
+        let status = CVPixelBufferCreate(
+            kCFAllocatorDefault,
+            Int(size.width),
+            Int(size.height),
+            kCVPixelFormatType_32ARGB,
+            attrs as CFDictionary,
+            &pixelBuffer
+        )
+        
+        guard status == kCVReturnSuccess, let buffer = pixelBuffer else {
+            return nil
+        }
+        
+        CVPixelBufferLockBaseAddress(buffer, [])
+        defer { CVPixelBufferUnlockBaseAddress(buffer, []) }
+        
+        let context = CGContext(
+            data: CVPixelBufferGetBaseAddress(buffer),
+            width: Int(size.width),
+            height: Int(size.height),
+            bitsPerComponent: 8,
+            bytesPerRow: CVPixelBufferGetBytesPerRow(buffer),
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.noneSkipFirst.rawValue
+        )
+        
+        guard let ctx = context, let cgImage = image.cgImage else {
+            return nil
+        }
+        
+        ctx.draw(cgImage, in: CGRect(origin: .zero, size: size))
+        
+        return buffer
+    }
 }
 
-// Ball Detection View using FFT logic
+// Ball Detection View (using unified detection logic)
 struct BallDetectionView: View {
     @State private var detectedBall: [AnyHashable: Any]? = nil
     @State private var lastFrame: UIImage? = nil
@@ -413,6 +671,10 @@ struct BallDetectionView: View {
             Spacer()
             
             // Live camera feed
+            // FFT camera feed implementation commented out
+            // Original code used CameraFeedForFFTDetection which is now commented out
+            // TODO: Replace with CameraFeedManager-based implementation if needed
+            /*
             CameraFeedForFFTDetection(onFrame: { frame in
                 lastFrame = frame
                 frameCount += 1
@@ -426,8 +688,8 @@ struct BallDetectionView: View {
                     // Use unified ball detection (tries multiple methods automatically)
                     let ballResult = OpenCVWrapper.detectBallUnified(frame)
                     
-                    // FFT detection is commented out but implementation is preserved
-                    // let fftResult = OpenCVWrapper.detectBallByFFT(frame) // FFT method kept but not used
+                    // FFT detection is commented out
+                    // let fftResult = OpenCVWrapper.detectBallByFFT(frame) // FFT method commented out
                     
                     // Use unified result directly
                     let finalResult = ballResult
@@ -509,6 +771,20 @@ struct BallDetectionView: View {
                 RoundedRectangle(cornerRadius: 10)
                     .stroke(Color.blue, lineWidth: 2)
             )
+            */
+            
+            // Placeholder view - FFT camera feed disabled
+            VStack {
+                Text("Camera feed disabled")
+                    .foregroundColor(.secondary)
+                    .padding()
+                Text("FFT implementation has been commented out")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            .frame(height: 300)
+            .background(Color.gray.opacity(0.1))
+            .cornerRadius(10)
         }
         .onAppear {
             startCamera()
@@ -524,6 +800,7 @@ struct BallDetectionView: View {
 }
 
 // FFT Ball Detection View (placeholder - you may need to implement this)
+/*
 struct FFTBallDetectionView: View {
     var body: some View {
         VStack {
@@ -539,6 +816,7 @@ struct FFTBallDetectionView: View {
         .padding()
     }
 }
+*/
 
 struct VideoDocument: FileDocument {
     static var readableContentTypes: [UTType] { [.movie] }

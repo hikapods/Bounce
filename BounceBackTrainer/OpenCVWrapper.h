@@ -1,4 +1,5 @@
 #import <Foundation/Foundation.h>
+#import <UIKit/UIKit.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -23,8 +24,9 @@ NS_ASSUME_NONNULL_BEGIN
 + (void)setProcessingMode:(NSString *)mode; // "fast", "accurate", "balanced"
 + (void)calibrateForLighting:(id)frame;
 
-// Ball detection methods (keeping FFT implementation but commenting out calls)
-+ (NSDictionary * _Nullable)detectBallByFFT:(id)frame; // FFT-based detection (commented out in usage)
+// Ball detection methods
+// FFT-based detection method commented out:
+// + (NSDictionary * _Nullable)detectBallByFFT:(id)frame; // FFT-based detection (commented out)
 + (NSDictionary * _Nullable)detectBallUnified:(id)frame; // New unified detection method
 
 @end
