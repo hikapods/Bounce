@@ -48,6 +48,7 @@ struct LandingView: View {
                     Text("Train like a pro,\nfrom any goal.")
                         .font(.system(size: 34, weight: .bold, design: .rounded))
                         .multilineTextAlignment(.center)
+                        .foregroundColor(.white)
 
                     Text("Bounce Back Trainer tracks your shots on a marked target and gives you instant accuracy feedback on your phone.")
                         .font(.subheadline)
@@ -288,4 +289,3 @@ final class ShotStatsManager: ObservableObject {
         }
     }
 }
-

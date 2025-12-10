@@ -312,27 +312,30 @@ struct ContentView: View {
             showError = true
         }
     }
-    
-    private func saveVideoToPhotos(url: URL) {
-        PHPhotoLibrary.requestAuthorization { status in
-            guard status == .authorized else {
-                DispatchQueue.main.async {
-                    errorMessage = "Please allow access to Photos in Settings."
-                    showError = true
-                }
-                return
-            }
 
-            PHPhotoLibrary.shared().performChanges({
-                PHAssetChangeRequest.creationRequestForAssetFromVideo(atFileURL: url)
-            }) { success, error in
+    private func checkCameraPermissionForRecording() {
+        switch AVCaptureDevice.authorizationStatus(for: .video) {
+        case .authorized:
+            cameraPermissionGranted = true
+            showCamera = true
+        case .notDetermined:
+            AVCaptureDevice.requestAccess(for: .video) { granted in
                 DispatchQueue.main.async {
-                    if !success {
-                        self.errorMessage = "Error saving video: \(error?.localizedDescription ?? "Unknown error")"
-                        self.showError = true
+                    cameraPermissionGranted = granted
+                    if granted {
+                        showCamera = true
+                    } else {
+                        errorMessage = "Camera access is required to record clips."
+                        showError = true
                     }
                 }
             }
+        case .denied, .restricted:
+            errorMessage = "Please enable camera access in Settings."
+            showError = true
+        @unknown default:
+            errorMessage = "Unknown camera permission status."
+            showError = true
         }
     }
 
@@ -549,8 +552,25 @@ struct ContentView: View {
                 } catch {
                     DispatchQueue.main.async {
                         self.errorMessage = "Error: \(error.localizedDescription)"
+=======
+    private func saveVideoToPhotos(url: URL) {
+        PHPhotoLibrary.requestAuthorization { status in
+            guard status == .authorized else {
+                DispatchQueue.main.async {
+                    errorMessage = "Please allow access to Photos in Settings."
+                    showError = true
+                }
+                return
+            }
+
+            PHPhotoLibrary.shared().performChanges({
+                PHAssetChangeRequest.creationRequestForAssetFromVideo(atFileURL: url)
+            }) { success, error in
+                DispatchQueue.main.async {
+                    if !success {
+                        self.errorMessage = "Error saving video: \(error?.localizedDescription ?? "Unknown error")"
+>>>>>>> cc504b785c40bdf48a97380563cb63b7a6a888e0
                         self.showError = true
-                        self.isProcessing = false
                     }
                 }
             }
@@ -728,287 +748,79 @@ struct FFTBallDetectionView: View {
                 .foregroundColor(.secondary)
         }
         .padding()
+=======
+
+    private func glassCard<Content: View>(
+        @ViewBuilder _ content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 16, content: content)
+            .padding(16)
+            .background(Color.white.opacity(0.08))
+            .background(.ultraThinMaterial.opacity(0.4))
+            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .stroke(Color.white.opacity(0.12), lineWidth: 1)
+            )
+>>>>>>> cc504b785c40bdf48a97380563cb63b7a6a888e0
     }
 }
 
-// Ball Detection View (using unified detection logic)
-struct BallDetectionView: View {
-    @State private var detectedBall: [AnyHashable: Any]? = nil
-    @State private var lastFrame: UIImage? = nil
-    @State private var isProcessing = false
-    @State private var frameCount = 0
-    @State private var detectionStats = ""
-    @State private var debugMode = false
-    
-    // Temporal consistency tracking
-    @State private var ballPositionHistory: [(x: Int, y: Int, confidence: Double)] = []
-    @State private var consecutiveDetections = 0
-    @State private var lastValidBall: [AnyHashable: Any]? = nil
+private struct PrimaryRow: View {
+    let icon: String
+    let title: String
+    let subtitle: String
 
     var body: some View {
-        VStack(spacing: 20) {
-            Text("Ball Detection")
-                .font(.title)
-                .fontWeight(.bold)
-                .padding(.top)
-            
-            // Debug mode toggle
-            Toggle("Debug Mode", isOn: $debugMode)
-                .padding(.horizontal)
-                .foregroundColor(.white)
-            
-            // Status indicator
-            HStack {
-                Circle()
-                    .fill(isProcessing ? Color.orange : Color.green)
-                    .frame(width: 12, height: 12)
-                Text(isProcessing ? "Processing..." : "Ready")
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.title2)
+                .frame(width: 32, height: 32)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
                     .foregroundColor(.white)
-            }
-            
-            // Detection statistics
-            Text(detectionStats)
-                .font(.caption)
-                .foregroundColor(.blue)
-                .padding(.horizontal)
-            
-            // Debug information
-            if debugMode {
-                VStack(alignment: .leading, spacing: 5) {
-                    Text("Debug Info:")
-                        .font(.caption)
-                        .fontWeight(.bold)
-                        .foregroundColor(.yellow)
-                    
-                    if let ball = detectedBall {
-                        Text("Raw Detection: \(String(describing: ball))")
-                            .font(.caption2)
-                            .foregroundColor(.white)
-                    }
-                    
-                    Text("Consecutive Detections: \(consecutiveDetections)")
-                        .font(.caption2)
-                        .foregroundColor(.cyan)
-                    
-                    Text("Position History: \(ballPositionHistory.count) points")
-                        .font(.caption2)
-                        .foregroundColor(.cyan)
-                }
-                .padding()
-                .background(Color.black.opacity(0.7))
-                .cornerRadius(10)
-            }
-            
-            // Ball detection results
-            if let ball = detectedBall, let isDetected = ball["isDetected"] as? Bool, isDetected {
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Text("⚽ Ball Detected!")
-                            .font(.headline)
-                            .foregroundColor(.green)
-                        Spacer()
-                        if let confidence = ball["confidence"] as? Double {
-                            Text("Conf: \(String(format: "%.2f", confidence))")
-                                .font(.caption)
-                                .foregroundColor(.yellow)
-                        }
-                    }
-                    
-                    if let x = ball["x"] as? Int, let y = ball["y"] as? Int {
-                        Text("Position: (\(x), \(y))")
-                            .font(.caption)
-                            .foregroundColor(.white)
-                    }
-                    
-                    if let radius = ball["radius"] as? Int {
-                        Text("Radius: \(radius) pixels")
-                            .font(.caption)
-                            .foregroundColor(.white)
-                    }
-                    
-                    // Temporal consistency info
-                    Text("Consecutive: \(consecutiveDetections)")
-                        .font(.caption)
-                        .foregroundColor(.cyan)
-                }
-                .padding()
-                .background(Color.black.opacity(0.7))
-                .cornerRadius(10)
-            } else {
-                Text("No ball detected")
-                    .foregroundColor(.red)
-                    .padding()
-                    .background(Color.black.opacity(0.7))
-                    .cornerRadius(10)
-            }
-            
-            Spacer()
-            
-            // Live camera feed
-            // FFT camera feed implementation commented out
-            // Original code used CameraFeedForFFTDetection which is now commented out
-            // TODO: Replace with CameraFeedManager-based implementation if needed
-            /*
-            CameraFeedForFFTDetection(onFrame: { frame in
-                lastFrame = frame
-                frameCount += 1
-                isProcessing = true
-                detectionStats = "Frame: \(frameCount), Size: \(Int(frame.size.width))x\(Int(frame.size.height))"
-                
-                // Add 2-second delay for better processing performance
-                DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + 2.0) {
-                    let startTime = CFAbsoluteTimeGetCurrent()
-                    
-                    // Use unified ball detection (tries multiple methods automatically)
-                    let ballResult = OpenCVWrapper.detectBallUnified(frame)
-                    
-                    // FFT detection is commented out
-                    // let fftResult = OpenCVWrapper.detectBallByFFT(frame) // FFT method commented out
-                    
-                    // Use unified result directly
-                    let finalResult = ballResult
-                    
-                    // Temporal consistency check
-                    var validatedResult = finalResult ?? [:]
-                    if let isDetected = validatedResult["isDetected"] as? Bool, isDetected,
-                       let x = validatedResult["x"] as? Int, let y = validatedResult["y"] as? Int,
-                       let confidence = validatedResult["confidence"] as? Double {
-                        
-                        // Add to position history
-                        ballPositionHistory.append((x: x, y: y, confidence: confidence))
-                        
-                        // Keep only last 5 positions
-                        if ballPositionHistory.count > 5 {
-                            ballPositionHistory.removeFirst()
-                        }
-                        
-                        // Check temporal consistency
-                        if ballPositionHistory.count >= 2 {
-                            let recentPositions = Array(ballPositionHistory.suffix(2))
-                            let avgX = Double(recentPositions.map { $0.x }.reduce(0, +)) / Double(recentPositions.count)
-                            let avgY = Double(recentPositions.map { $0.y }.reduce(0, +)) / Double(recentPositions.count)
-                            
-                            // Check if positions are reasonably close (within 80 pixels)
-                            let maxDistance = 80.0
-                            let isConsistent = recentPositions.allSatisfy { pos in
-                                let distance = sqrt(pow(Double(pos.x) - avgX, 2) + pow(Double(pos.y) - avgY, 2))
-                                return distance <= maxDistance
-                            }
-                            
-                            if isConsistent {
-                                consecutiveDetections += 1
-                                lastValidBall = validatedResult
-                            } else {
-                                consecutiveDetections = 0
-                                validatedResult = lastValidBall ?? validatedResult // Use last valid detection
-                            }
-                        } else {
-                            consecutiveDetections = 1
-                            lastValidBall = validatedResult
-                        }
-                        
-                        // Only accept detection if we have consistent detections (reduced requirement)
-                        if consecutiveDetections >= 1 {
-                            validatedResult = validatedResult
-                        } else {
-                            validatedResult = lastValidBall ?? validatedResult
-                        }
-                    } else {
-                        consecutiveDetections = 0
-                        ballPositionHistory.removeAll()
-                    }
-                    
-                    let processingTime = CFAbsoluteTimeGetCurrent() - startTime
-                    
-                    DispatchQueue.main.async {
-                        detectedBall = validatedResult
-                        isProcessing = false
-                        
-                        // Update stats with processing time
-                        if let isDetected = validatedResult["isDetected"] as? Bool {
-                            detectionStats = "Frame: \(frameCount), Processing: \(String(format: "%.3f", processingTime))s, Detected: \(isDetected)"
-                        }
-                        
-                        // Log detection results for debugging
-                        if let isDetected = validatedResult["isDetected"] as? Bool, isDetected {
-                            print("⚽ Ball Detection: Ball found at frame \(frameCount)")
-                            if let x = validatedResult["x"] as? Int, let y = validatedResult["y"] as? Int {
-                                print("   Position: (\(x), \(y))")
-                            }
-                        }
-                    }
-                }
-            })
-            .frame(height: 300)
-            .cornerRadius(10)
-            .overlay(
-                RoundedRectangle(cornerRadius: 10)
-                    .stroke(Color.blue, lineWidth: 2)
-            )
-            */
-            
-            // Placeholder view - FFT camera feed disabled
-            VStack {
-                Text("Camera feed disabled")
-                    .foregroundColor(.secondary)
-                    .padding()
-                Text("FFT implementation has been commented out")
+                Text(subtitle)
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(.white.opacity(0.6))
             }
-            .frame(height: 300)
-            .background(Color.gray.opacity(0.1))
-            .cornerRadius(10)
+            Spacer()
         }
-        .onAppear {
-            startCamera()
-        }
-        .sheet(isPresented: .constant(true)) {
-            // Camera feed is embedded in the view
-        }
-    }
-    
-    private func startCamera() {
-        print("Ball Detection: Camera started automatically")
+        .padding(12)
+        .background(Color.white.opacity(0.06))
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 }
 
-// FFT Ball Detection View (placeholder - you may need to implement this)
-/*
+private struct SecondaryRow: View {
+    let icon: String
+    let title: String
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: icon)
+                .font(.subheadline)
+            Text(title)
+                .font(.subheadline)
+            Spacer()
+        }
+        .foregroundColor(.white.opacity(0.9))
+        .padding(10)
+        .background(Color.white.opacity(0.03))
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+}
+
 struct FFTBallDetectionView: View {
     var body: some View {
-        VStack {
+        VStack(spacing: 16) {
             Text("FFT Ball Detection")
-                .font(.title)
-                .fontWeight(.bold)
-            
-            Text("FFT-based ball detection view")
+                .font(.title2.weight(.semibold))
+            Text("FFT-based detection UI is not wired yet.\nML live detection is available from the main tools screen.")
+                .font(.footnote)
+                .multilineTextAlignment(.center)
                 .foregroundColor(.secondary)
-            
-            // Add your FFT ball detection implementation here
         }
         .padding()
     }
 }
-*/
-
-struct VideoDocument: FileDocument {
-    static var readableContentTypes: [UTType] { [.movie] }
-    
-    var url: URL?
-    
-    init(url: URL?) {
-        self.url = url
-    }
-    
-    init(configuration: ReadConfiguration) throws {
-        url = nil
-    }
-    
-    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
-        guard let url = url else {
-            throw CocoaError(.fileNoSuchFile)
-        }
-        return try FileWrapper(url: url, options: .immediate)
-    }
-} 
