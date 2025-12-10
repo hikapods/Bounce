@@ -11,7 +11,8 @@ import SwiftUI
 struct BounceBackTrainerApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            LandingView()
+                .preferredColorScheme(.dark)
         }
     }
 }

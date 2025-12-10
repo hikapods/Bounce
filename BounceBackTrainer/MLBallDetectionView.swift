@@ -8,6 +8,7 @@ struct MLBallDetectionView: View {
     @State private var isRunningInference = false
     @State private var modelReady = MLBallDetector.shared.isReady
     @State private var lastDetectionTime = Date.distantPast
+    @StateObject private var tracker = BallTracker()
     
     var body: some View {
         VStack(spacing: 16) {
@@ -106,9 +107,6 @@ struct MLBallDetectionView: View {
                 .font(.headline)
             if let detection = detection {
                 Text("Label: \(detection.label)")
-                // DEBUG: Show class index if possible, or just rely on label
-                // Text("Class Index: ...") // We don't have index in struct yet, but label should be "classN"
-
                 Text(String(format: "Confidence: %.2f", detection.confidence))
                 Text(String(format: "Bounding Box: x %.2f  y %.2f  w %.2f  h %.2f",
                             detection.boundingBox.origin.x,
@@ -128,7 +126,7 @@ struct MLBallDetectionView: View {
             
             let now = Date()
             guard !isRunningInference,
-                  now.timeIntervalSince(lastDetectionTime) >= 0.1 else { return }
+                  now.timeIntervalSince(lastDetectionTime) >= 0.05 else { return } // Increased rate for smoother tracking
             
             lastDetectionTime = now
             runDetection(on: image)
@@ -145,18 +143,54 @@ struct MLBallDetectionView: View {
     private func runDetection(on image: UIImage) {
         guard modelReady else { return }
         isRunningInference = true
-        // detectionStatus = "Processing frame..." // Removed to prevent flickering
         
         MLBallDetector.shared.detectBall(in: image) { result in
-            detection = result
-            detectionStatus = result == nil ? "No ball detected" : "Ball detected"
-            isRunningInference = false
+            DispatchQueue.main.async {
+                // Update tracker with new result (or nil if missed)
+                self.detection = self.tracker.update(with: result)
+                
+                if self.detection != nil {
+                    self.detectionStatus = "Ball detected"
+                } else {
+                    self.detectionStatus = "Scanning..."
+                }
+                
+                self.isRunningInference = false
+            }
         }
     }
     
     private func rerunDetection() {
         guard let frame = latestFrame, modelReady else { return }
         runDetection(on: frame)
+    }
+}
+
+// MARK: - Ball Tracker
+class BallTracker: ObservableObject {
+    private var lastDetection: MLBallDetection?
+    private var framesSinceLastDetection: Int = 0
+    private let maxFramesToKeep: Int = 10 // Keep showing box for ~0.5s if missed
+    
+    func update(with newDetection: MLBallDetection?) -> MLBallDetection? {
+        if let detection = newDetection {
+            // We have a fresh detection
+            lastDetection = detection
+            framesSinceLastDetection = 0
+            return detection
+        } else {
+            // Missed detection
+            if let last = lastDetection, framesSinceLastDetection < maxFramesToKeep {
+                framesSinceLastDetection += 1
+                // Return the last known position (could add prediction here)
+                return last
+            } else {
+                // Lost track
+                lastDetection = nil
+                framesSinceLastDetection = 0
+                return nil
+            }
+        }
     }
 }
 

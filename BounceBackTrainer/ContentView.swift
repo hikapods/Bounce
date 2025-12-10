@@ -1,242 +1,267 @@
 import SwiftUI
 import AVFoundation
-import UIKit
 import AVKit
-import UniformTypeIdentifiers
 import PhotosUI
+import Photos
+import UIKit
 import CoreVideo
 import Darwin
 
 struct ContentView: View {
-    // @State private var showBallDetection = false  // Ball Detection feature commented out
-    // @State private var showFFTBallDetection = false  // FFT feature commented out
-    @State private var showMLPackageDetection = false
+    @State private var showLiveCamera = false
+    @State private var showCamera = false
+    @State private var showMLBallDetection = false
+    @State private var showVideoSheet = false
+
     @State private var inputURL: URL?
     @State private var outputURL: URL?
-    @State private var showVideoPlayer = false
-    @State private var showPicker = false
-    @State private var showSaveDialog = false
-    @State private var errorMessage: String?
-    @State private var showError = false
-    @State private var showVideoSheet = false
+
     @State private var selectedItem: PhotosPickerItem?
     @State private var isProcessing = false
-    @State private var showCamera = false
     @State private var cameraPermissionGranted = false
-    @State private var showLiveCamera = false
+    @State private var errorMessage: String?
+    @State private var showError = false
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 20) {
-                Text("Bounce Back Trainer")
-                    .font(.title)
-                    .fontWeight(.bold)
-                    .padding(.top)
-
-                VStack(spacing: 15) {
-                    // Live Camera Button
-                    Button(action: {
-                        checkCameraPermission()
-                    }) {
-                        HStack {
-                            Image(systemName: "camera.fill")
-                            Text("Live Camera Mode")
+            ZStack {
+                Color.black.ignoresSafeArea()
+                ScrollView {
+                    VStack(spacing: 24) {
+                        headerSection
+                        trainingClipsCard
+                        liveDetectionCard
+                        if outputURL != nil {
+                            resultsCard
                         }
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.green)
-                        .foregroundColor(.white)
-                        .cornerRadius(12)
+                        Spacer(minLength: 24)
                     }
-                    .sheet(isPresented: $showLiveCamera) {
-                        LiveCameraView()
-                    }
-
-                    Button(action: {
-                        checkCameraPermission()
-                    }) {
-                        HStack {
-                            Image(systemName: "camera.fill")
-                            Text("Record Video")
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.blue)
-                        .foregroundColor(.white)
-                        .cornerRadius(12)
-                    }
-                    .sheet(isPresented: $showCamera) {
-                        CameraView { url in
-                            if let url = url {
-                                inputURL = url
-                            }
-                        }
-                    }
-
-                    PhotosPicker(selection: $selectedItem,
-                               matching: .videos) {
-                        HStack {
-                            Image(systemName: "photo.on.rectangle")
-                            Text("Choose from Library")
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.blue)
-                        .foregroundColor(.white)
-                        .cornerRadius(12)
-                    }
-                    .onChange(of: selectedItem) { _, newItem in
-                        Task {
-                            if let data = try? await newItem?.loadTransferable(type: Data.self) {
-                                let tempURL = FileManager.default.temporaryDirectory
-                                    .appendingPathComponent("input_video.mp4")
-                                try? data.write(to: tempURL)
-                                inputURL = tempURL
-                            }
-                        }
-                    }
-
-                    // Blue Ball Detection button - commented out
-                    /*
-                    Button(action: {
-                        showBallDetection = true
-                    }) {
-                        HStack {
-                            Image(systemName: "soccerball")
-                            Text("Ball Detection")
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.blue)
-                        .foregroundColor(.white)
-                        .cornerRadius(12)
-                    }
-                    .sheet(isPresented: $showBallDetection) {
-                        BallDetectionView()
-                    }
-                    */
-
-                    // Purple FFT Ball Detection button
-                    /*
-                    Button(action: {
-                        showFFTBallDetection = true
-                    }) {
-                        HStack {
-                            Image(systemName: "waveform.path.ecg")
-                            Text("FFT Ball Detection")
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.purple)
-                        .foregroundColor(.white)
-                        .cornerRadius(12)
-                    }
-                    .sheet(isPresented: $showFFTBallDetection) {
-                        FFTBallDetectionView()
-                    }
-                    */
-
-                    // ML Package testing button
-                    Button(action: {
-                        showMLPackageDetection = true
-                    }) {
-                        HStack {
-                            Image(systemName: "target")
-                            Text("ML Package Ball Test")
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.orange)
-                        .foregroundColor(.white)
-                        .cornerRadius(12)
-                    }
-                    .sheet(isPresented: $showMLPackageDetection) {
-                        MLBallDetectionView()
-                    }
-                }
-                .padding(.horizontal)
-
-                if let inputURL = inputURL {
-                    VideoPlayer(player: AVPlayer(url: inputURL))
-                        .frame(height: 200)
-                        .cornerRadius(12)
-                        .padding(.horizontal)
-                }
-
-                Button(action: {
-                    guard let input = inputURL else { return }
-                    isProcessing = true
-                    
-                    // Process video with ML ball detection
-                    processVideoWithMLDetection(inputURL: input)
-                }) {
-                    HStack {
-                        if isProcessing {
-                            ProgressView()
-                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                                .padding(.trailing, 5)
-                        }
-                        Image(systemName: "wand.and.stars")
-                        Text(isProcessing ? "Processing..." : "Analyze Video")
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(inputURL == nil || isProcessing ? Color.gray : Color.green)
-                    .foregroundColor(.white)
-                    .cornerRadius(12)
-                }
-                .disabled(inputURL == nil || isProcessing)
-                .padding(.horizontal)
-
-                if let outputURL = outputURL {
-                    VStack(spacing: 15) {
-                        Button(action: {
-                            showVideoSheet = true
-                        }) {
-                            HStack {
-                                Image(systemName: "play.circle.fill")
-                                Text("View Output Video")
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color.blue)
-                            .foregroundColor(.white)
-                            .cornerRadius(12)
-                        }
-                        
-                        Button(action: {
-                            saveVideoToPhotos(url: outputURL)
-                        }) {
-                            HStack {
-                                Image(systemName: "square.and.arrow.down.fill")
-                                Text("Save to Photos")
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color.blue)
-                            .foregroundColor(.white)
-                            .cornerRadius(12)
-                        }
-                    }
-                    .padding(.horizontal)
+                    .padding(.vertical, 16)
                 }
             }
-            .padding(.vertical)
             .navigationTitle("Bounce Back Trainer")
+            .navigationBarTitleDisplayMode(.inline)
         }
         .sheet(isPresented: $showVideoSheet) {
             if let url = outputURL {
                 OutputVideoView(url: url)
+                    .preferredColorScheme(.dark)
             }
+        }
+        .sheet(isPresented: $showLiveCamera) {
+            LiveCameraView()
+                .preferredColorScheme(.dark)
+        }
+        .sheet(isPresented: $showCamera) {
+            CameraView { url in
+                if let url = url {
+                    inputURL = url
+                }
+            }
+        }
+        .sheet(isPresented: $showMLBallDetection) {
+            MLBallDetectionView()
+                .preferredColorScheme(.dark)
         }
         .alert("Error", isPresented: $showError) {
             Button("OK", role: .cancel) { }
         } message: {
             Text(errorMessage ?? "An unknown error occurred")
         }
+        .preferredColorScheme(.dark)
     }
-    
-    private func checkCameraPermission() {
+
+    private var headerSection: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Tools")
+                .font(.title2.weight(.semibold))
+                .foregroundColor(.white)
+            Text("Record, analyze, and test live detection modes.")
+                .font(.footnote)
+                .foregroundColor(.white.opacity(0.6))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal)
+    }
+
+    private var trainingClipsCard: some View {
+        glassCard {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Training clips")
+                        .font(.headline)
+                        .foregroundColor(.white)
+                    Text("Capture or load a drill to analyze.")
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.6))
+                }
+                Spacer()
+                Image(systemName: "film")
+                    .foregroundColor(.white.opacity(0.7))
+            }
+
+            VStack(spacing: 12) {
+                Button {
+                    checkCameraPermissionForRecording()
+                } label: {
+                    PrimaryRow(
+                        icon: "camera.circle.fill",
+                        title: "Record training clip",
+                        subtitle: "Use the rear camera to capture a drill."
+                    )
+                }
+
+                PhotosPicker(
+                    selection: $selectedItem,
+                    matching: .videos
+                ) {
+                    PrimaryRow(
+                        icon: "photo.on.rectangle.angled",
+                        title: "Choose from library",
+                        subtitle: "Use an existing training video."
+                    )
+                }
+                .onChange(of: selectedItem) { _, newItem in
+                    Task {
+                        if let data = try? await newItem?.loadTransferable(type: Data.self) {
+                            let tempURL = FileManager.default.temporaryDirectory
+                                .appendingPathComponent("input_video.mp4")
+                            try? data.write(to: tempURL)
+                            inputURL = tempURL
+                        }
+                    }
+                }
+
+                if let inputURL = inputURL {
+                    VideoPlayer(player: AVPlayer(url: inputURL))
+                        .frame(height: 180)
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14)
+                                .strokeBorder(Color.white.opacity(0.2), lineWidth: 1)
+                        )
+                        .padding(.top, 4)
+                }
+
+                Button {
+                    runAnalysis()
+                } label: {
+                    HStack {
+                        if isProcessing {
+                            ProgressView()
+                                .progressViewStyle(.circular)
+                                .tint(.white)
+                                .padding(.trailing, 6)
+                        }
+                        Image(systemName: "wand.and.stars")
+                        Text(isProcessing ? "Analyzing…" : "Analyze training clip")
+                            .fontWeight(.semibold)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(inputURL == nil || isProcessing ? Color.gray : Color.green)
+                    .foregroundColor(.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                }
+                .disabled(inputURL == nil || isProcessing)
+                .padding(.top, 4)
+            }
+        }
+        .padding(.horizontal)
+    }
+
+    private var liveDetectionCard: some View {
+        glassCard {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Live detection")
+                        .font(.headline)
+                        .foregroundColor(.white)
+                    Text("Experimental live tracking modes.")
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.6))
+                }
+                Spacer()
+                Image(systemName: "dot.radiowaves.left.and.right")
+                    .foregroundColor(.white.opacity(0.7))
+            }
+
+            VStack(spacing: 12) {
+                Button {
+                    checkCameraPermissionForLive()
+                } label: {
+                    PrimaryRow(
+                        icon: "camera.viewfinder",
+                        title: "Live camera mode",
+                        subtitle: "Preview the target and kick setup."
+                    )
+                }
+
+                Button {
+                    showMLBallDetection = true
+                } label: {
+                    PrimaryRow(
+                        icon: "soccerball",
+                        title: "ML ball detector",
+                        subtitle: "Direct view of model predictions (beta)."
+                    )
+                }
+            }
+        }
+        .padding(.horizontal)
+    }
+
+    private var resultsCard: some View {
+        glassCard {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Results")
+                        .font(.headline)
+                        .foregroundColor(.white)
+                    Text("Review and export analyzed clips.")
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.6))
+                }
+                Spacer()
+                Image(systemName: "checkmark.seal")
+                    .foregroundColor(.white.opacity(0.7))
+            }
+
+            if let outputURL = outputURL {
+                VStack(spacing: 12) {
+                    Button {
+                        showVideoSheet = true
+                    } label: {
+                        PrimaryRow(
+                            icon: "play.circle.fill",
+                            title: "View analyzed clip",
+                            subtitle: "Watch the overlay with ball impact."
+                        )
+                    }
+
+                    Button {
+                        saveVideoToPhotos(url: outputURL)
+                    } label: {
+                        SecondaryRow(
+                            icon: "square.and.arrow.down.fill",
+                            title: "Save to Photos"
+                        )
+                    }
+                }
+            }
+        }
+        .padding(.horizontal)
+    }
+
+    private func runAnalysis() {
+        guard let input = inputURL else { return }
+        isProcessing = true
+        
+        // Process video with ML ball detection
+        processVideoWithMLDetection(inputURL: input)
+    }
+
+    private func checkCameraPermissionForLive() {
         switch AVCaptureDevice.authorizationStatus(for: .video) {
         case .authorized:
             cameraPermissionGranted = true
@@ -248,16 +273,42 @@ struct ContentView: View {
                     if granted {
                         showLiveCamera = true
                     } else {
-                        errorMessage = "Camera access is required to record videos"
+                        errorMessage = "Camera access is required for live camera mode."
                         showError = true
                     }
                 }
             }
         case .denied, .restricted:
-            errorMessage = "Please enable camera access in Settings"
+            errorMessage = "Please enable camera access in Settings."
             showError = true
         @unknown default:
-            errorMessage = "Unknown camera permission status"
+            errorMessage = "Unknown camera permission status."
+            showError = true
+        }
+    }
+
+    private func checkCameraPermissionForRecording() {
+        switch AVCaptureDevice.authorizationStatus(for: .video) {
+        case .authorized:
+            cameraPermissionGranted = true
+            showCamera = true
+        case .notDetermined:
+            AVCaptureDevice.requestAccess(for: .video) { granted in
+                DispatchQueue.main.async {
+                    cameraPermissionGranted = granted
+                    if granted {
+                        showCamera = true
+                    } else {
+                        errorMessage = "Camera access is required to record clips."
+                        showError = true
+                    }
+                }
+            }
+        case .denied, .restricted:
+            errorMessage = "Please enable camera access in Settings."
+            showError = true
+        @unknown default:
+            errorMessage = "Unknown camera permission status."
             showError = true
         }
     }
@@ -266,25 +317,37 @@ struct ContentView: View {
         PHPhotoLibrary.requestAuthorization { status in
             guard status == .authorized else {
                 DispatchQueue.main.async {
-                    errorMessage = "Please allow access to Photos in Settings"
+                    errorMessage = "Please allow access to Photos in Settings."
                     showError = true
                 }
                 return
             }
-            
+
             PHPhotoLibrary.shared().performChanges({
                 PHAssetChangeRequest.creationRequestForAssetFromVideo(atFileURL: url)
             }) { success, error in
                 DispatchQueue.main.async {
-                    if success {
-                        print("Video saved to Photos successfully")
-                    } else {
-                        errorMessage = "Error saving video: \(error?.localizedDescription ?? "Unknown error")"
-                        showError = true
+                    if !success {
+                        self.errorMessage = "Error saving video: \(error?.localizedDescription ?? "Unknown error")"
+                        self.showError = true
                     }
                 }
             }
         }
+    }
+
+    private func glassCard<Content: View>(
+        @ViewBuilder _ content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 16, content: content)
+            .padding(16)
+            .background(Color.white.opacity(0.08))
+            .background(.ultraThinMaterial.opacity(0.4))
+            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .stroke(Color.white.opacity(0.12), lineWidth: 1)
+            )
     }
     
     // Process video with ML ball detection (Optimized with AVAssetReader)
@@ -606,6 +669,65 @@ struct ContentView: View {
         } else {
             print("⚠️ Failed to get memory info: \(kerr)")
         }
+    }
+}
+
+private struct PrimaryRow: View {
+    let icon: String
+    let title: String
+    let subtitle: String
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.title2)
+                .frame(width: 32, height: 32)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundColor(.white)
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundColor(.white.opacity(0.6))
+            }
+            Spacer()
+        }
+        .padding(12)
+        .background(Color.white.opacity(0.06))
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+}
+
+private struct SecondaryRow: View {
+    let icon: String
+    let title: String
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: icon)
+                .font(.subheadline)
+            Text(title)
+                .font(.subheadline)
+            Spacer()
+        }
+        .foregroundColor(.white.opacity(0.9))
+        .padding(10)
+        .background(Color.white.opacity(0.03))
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+}
+
+struct FFTBallDetectionView: View {
+    var body: some View {
+        VStack(spacing: 16) {
+            Text("FFT Ball Detection")
+                .font(.title2.weight(.semibold))
+            Text("FFT-based detection UI is not wired yet.\nML live detection is available from the main tools screen.")
+                .font(.footnote)
+                .multilineTextAlignment(.center)
+                .foregroundColor(.secondary)
+        }
+        .padding()
     }
 }
 

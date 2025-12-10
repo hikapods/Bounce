@@ -16,7 +16,7 @@ final class MLBallDetector {
     private let model: MLModel?
     private let processingQueue = DispatchQueue(label: "com.bouncebacktrainer.mlball", qos: .userInitiated)
     private let targetLabels: Set<String> = ["ball", "soccer", "class0"]
-    private let minimumConfidence: Float = 0.5  // Lowered to improve consistency
+    private let minimumConfidence: Float = 0.6  // Lowered to improve consistency
     
     private init() {
         let configuration = MLModelConfiguration()
