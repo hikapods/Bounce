@@ -315,7 +315,7 @@ class SoccerBallCameraViewController: UIViewController {
 }
 
 extension SoccerBallCameraViewController: AVCaptureVideoDataOutputSampleBufferDelegate {
-    func captureOutput(_ output: AVCaptureVideoDataOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
+    func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
         frameCount += 1
         
         guard let imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { 

@@ -10,6 +10,7 @@ import SwiftUI
 struct LandingView: View {
     @State private var showMain = false
     @State private var showAdvanced = false
+    @ObservedObject private var stats = ShotStatsManager.shared
 
     var body: some View {
         ZStack {
@@ -58,8 +59,13 @@ struct LandingView: View {
                 }
 
                 HStack(spacing: 16) {
-                    StatPill(title: "Impact error", value: "0.18 m")
-                    StatPill(title: "Shots analyzed", value: "24")
+                    StatPill(
+                        title: "Impact error",
+                        value: stats.averageErrorMeters != nil
+                            ? String(format: "%.2f m", stats.averageErrorMeters!)
+                            : "–"
+                    )
+                    StatPill(title: "Shots analyzed", value: "\(stats.totalShots)")
                 }
                 .padding(.horizontal, 24)
                 .padding(.top, 8)

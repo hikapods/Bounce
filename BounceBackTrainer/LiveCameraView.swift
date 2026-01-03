@@ -46,6 +46,10 @@ struct LiveCameraView: View {
     @State private var showVideoSavedAlert = false
     @State private var videoSaveMessage = ""
     
+    // Overlay data captured when recording starts (for processing)
+    @State private var recordedGoalRegion: CGRect? = nil
+    @State private var recordedLockedTargets: [[AnyHashable: Any]] = []
+    
     // Computed properties to avoid complex expressions
     private var statusText: Text {
         if detectionManager.goalLocked {
@@ -594,13 +598,17 @@ struct LiveCameraView: View {
                         )
                     }
                     
-                    // Impact feedback
+                    // Impact feedback and shot registration
                     if impact && !self.impactDetected {
                         self.impactDetected = true
                         self.impactMessage = "HIT!"
                         self.showImpactFeedback = true
                         let impactFeedback = UIImpactFeedbackGenerator(style: .heavy)
                         impactFeedback.impactOccurred()
+                        
+                        // Register shot with ShotStatsManager
+                        self.registerShot(ball: currentBall, lockedTargets: self.detectionManager.lockedTargets, frameSize: self.frameSize)
+                        
                         DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
                             self.showImpactFeedback = false
                             self.impactDetected = false
@@ -629,6 +637,10 @@ struct LiveCameraView: View {
     
     // Start recording when ball is detected
     private func startRecording() {
+        // Capture current overlay state for processing
+        recordedGoalRegion = detectedTapeRegion
+        recordedLockedTargets = detectionManager.lockedTargets
+        
         let timestamp = Date()
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyyMMdd_HHmmss"
@@ -651,12 +663,16 @@ struct LiveCameraView: View {
             print("🎥 Auto-stopped recording: \(originalURL.lastPathComponent)")
             self.originalVideoURL = originalURL
             
+            // Capture overlay data for processing
+            let goalRegion = self.recordedGoalRegion
+            let lockedTargets = self.recordedLockedTargets
+            
             // Save video to Photos immediately (bypass processing)
             self.saveVideoToPhotos(url: originalURL, isOriginal: true)
             
             // Process video with ML detection in background (later)
             DispatchQueue.global(qos: .utility).async {
-                self.processVideoWithMLDetection(inputURL: originalURL)
+                self.processVideoWithMLDetection(inputURL: originalURL, goalRegion: goalRegion, lockedTargets: lockedTargets)
             }
         }
         
@@ -674,6 +690,11 @@ struct LiveCameraView: View {
     // Stop recording manually (if user taps stop button)
     private func stopRecording() {
         videoRecorder.onRecordingComplete = nil // Clear auto-completion
+        
+        // Capture current overlay state for processing
+        let goalRegion = recordedGoalRegion ?? detectedTapeRegion
+        let lockedTargets = recordedLockedTargets.isEmpty ? detectionManager.lockedTargets : recordedLockedTargets
+        
         videoRecorder.stopRecording { url in
             guard let originalURL = url else {
                 DispatchQueue.main.async {
@@ -691,13 +712,13 @@ struct LiveCameraView: View {
             
             // Process video with ML detection in background (later)
             DispatchQueue.global(qos: .utility).async {
-                self.processVideoWithMLDetection(inputURL: originalURL)
+                self.processVideoWithMLDetection(inputURL: originalURL, goalRegion: goalRegion, lockedTargets: lockedTargets)
             }
         }
     }
     
-    // Process video frame by frame with ML detection and mark balls
-    private func processVideoWithMLDetection(inputURL: URL) {
+    // Process video frame by frame with ML detection and mark balls, goal, and targets
+    private func processVideoWithMLDetection(inputURL: URL, goalRegion: CGRect?, lockedTargets: [[AnyHashable: Any]]) {
         // Log memory usage before processing
         logMemoryUsage(phase: "Before video processing")
         
@@ -810,10 +831,14 @@ struct LiveCameraView: View {
                     var detectionCompleted = false
                     
                     MLBallDetector.shared.detectBall(in: uiImage) { mlDetection in
-                        if let detection = mlDetection {
-                            // Draw bounding box on image
-                            processedImage = self.drawBoundingBox(on: uiImage, detection: detection)
-                        }
+                        // Draw all overlays (goal, targets, and ball)
+                        processedImage = self.drawAllOverlays(
+                            on: uiImage,
+                            ballDetection: mlDetection,
+                            goalRegion: goalRegion,
+                            lockedTargets: lockedTargets,
+                            videoSize: videoSize
+                        )
                         detectionCompleted = true
                         semaphore.signal()
                     }
@@ -878,8 +903,14 @@ struct LiveCameraView: View {
         }
     }
     
-    // Draw bounding box on image
-    private func drawBoundingBox(on image: UIImage, detection: MLBallDetection) -> UIImage {
+    // Draw all overlays (goal region, targets, and ball detection) on image
+    private func drawAllOverlays(
+        on image: UIImage,
+        ballDetection: MLBallDetection?,
+        goalRegion: CGRect?,
+        lockedTargets: [[AnyHashable: Any]],
+        videoSize: CGSize
+    ) -> UIImage {
         let size = image.size
         let scale = image.scale
         
@@ -889,30 +920,131 @@ struct LiveCameraView: View {
         // Draw original image
         image.draw(in: CGRect(origin: .zero, size: size))
         
-        // Convert normalized bounding box to pixel coordinates
-        let bbox = detection.boundingBox
-        let rect = CGRect(
-            x: bbox.origin.x * size.width,
-            y: bbox.origin.y * size.height,
-            width: bbox.width * size.width,
-            height: bbox.height * size.height
-        )
+        context.setAllowsAntialiasing(true)
+        context.setShouldAntialias(true)
         
-        // Draw bounding box
-        context.setStrokeColor(UIColor.blue.cgColor)
-        context.setLineWidth(4.0)
-        context.stroke(rect)
+        // 1. Draw goal region (pink rectangle)
+        if let goalRect = goalRegion, goalRect != .zero {
+            context.setStrokeColor(UIColor.systemPink.cgColor)
+            context.setLineWidth(4.0)
+            context.stroke(goalRect)
+        }
         
-        // Draw confidence label
-        let confidenceText = String(format: "%.0f%%", detection.confidence * 100)
-        let attributes: [NSAttributedString.Key: Any] = [
-            .font: UIFont.boldSystemFont(ofSize: 20),
-            .foregroundColor: UIColor.blue,
-            .backgroundColor: UIColor.white.withAlphaComponent(0.8)
-        ]
+        // 2. Draw locked targets (green rectangles/circles with numbers)
+        for target in lockedTargets {
+            // Extract values - they come as NSNumber from OpenCV
+            var cx: CGFloat = 0
+            var cy: CGFloat = 0
+            var r: CGFloat = 0
+            
+            if let centerXNum = target["centerX"] as? NSNumber {
+                cx = CGFloat(centerXNum.doubleValue)
+            } else if let centerXCGFloat = target["centerX"] as? CGFloat {
+                cx = centerXCGFloat
+            } else {
+                continue
+            }
+            
+            if let centerYNum = target["centerY"] as? NSNumber {
+                cy = CGFloat(centerYNum.doubleValue)
+            } else if let centerYCGFloat = target["centerY"] as? CGFloat {
+                cy = centerYCGFloat
+            } else {
+                continue
+            }
+            
+            if let radiusNum = target["radius"] as? NSNumber {
+                r = CGFloat(radiusNum.doubleValue)
+            } else if let radiusCGFloat = target["radius"] as? CGFloat {
+                r = radiusCGFloat
+            } else {
+                continue
+            }
+            
+            // Determine if it's a ball target (blue) or regular target (green)
+            let isBall = target["type"] as? String == "ball"
+            let targetColor = isBall ? UIColor.blue : UIColor.green
+            
+            // Calculate inflated rectangle (20% larger, matching TargetDetectionView)
+            let baseRect = CGRect(x: cx - r, y: cy - r, width: 2*r, height: 2*r)
+            let inflatedRect = baseRect.insetBy(dx: -baseRect.width*0.1, dy: -baseRect.height*0.1)
+            
+            // Draw rectangle (matching UI style)
+            context.setStrokeColor(targetColor.cgColor)
+            context.setLineWidth(3.0)
+            context.stroke(inflatedRect)
+            
+            // Draw target number
+            if let targetNumber = target["targetNumber"] as? Int ?? (target["targetNumber"] as? NSNumber)?.intValue {
+                let numberText = "\(targetNumber)"
+                let attributes: [NSAttributedString.Key: Any] = [
+                    .font: UIFont.boldSystemFont(ofSize: 16),
+                    .foregroundColor: UIColor.white,
+                    .backgroundColor: targetColor
+                ]
+                
+                let textSize = numberText.size(withAttributes: attributes)
+                let textRect = CGRect(
+                    x: cx - textSize.width / 2,
+                    y: cy - r - textSize.height - 15,
+                    width: textSize.width + 8,
+                    height: textSize.height + 4
+                )
+                
+                // Draw rounded background
+                let roundedRect = UIBezierPath(roundedRect: textRect, cornerRadius: textRect.height / 2)
+                targetColor.setFill()
+                roundedRect.fill()
+                
+                // Draw text
+                numberText.draw(at: CGPoint(x: textRect.origin.x + 4, y: textRect.origin.y + 2), withAttributes: attributes)
+            }
+        }
         
-        let textRect = CGRect(x: rect.origin.x, y: rect.origin.y - 30, width: 100, height: 30)
-        confidenceText.draw(in: textRect, withAttributes: attributes)
+        // 3. Draw ball detection (blue circle with confidence)
+        if let detection = ballDetection {
+            let bbox = detection.boundingBox
+            let rect = CGRect(
+                x: bbox.origin.x * size.width,
+                y: bbox.origin.y * size.height,
+                width: bbox.width * size.width,
+                height: bbox.height * size.height
+            )
+            
+            // Draw bounding box/circle
+            context.setStrokeColor(UIColor.blue.cgColor)
+            context.setLineWidth(3.0)
+            
+            // Draw as circle (matching UI style)
+            let center = CGPoint(x: rect.midX, y: rect.midY)
+            let radius = min(rect.width, rect.height) / 2
+            context.addArc(center: center, radius: radius, startAngle: 0, endAngle: .pi * 2, clockwise: false)
+            context.strokePath()
+            
+            // Draw confidence label
+            let confidenceText = String(format: "%.0f%%", detection.confidence * 100)
+            let attributes: [NSAttributedString.Key: Any] = [
+                .font: UIFont.boldSystemFont(ofSize: 14),
+                .foregroundColor: UIColor.blue,
+                .backgroundColor: UIColor.white.withAlphaComponent(0.8)
+            ]
+            
+            let textSize = confidenceText.size(withAttributes: attributes)
+            let textRect = CGRect(
+                x: center.x - textSize.width / 2 - 4,
+                y: center.y - radius - textSize.height - 20,
+                width: textSize.width + 8,
+                height: textSize.height + 4
+            )
+            
+            // Draw rounded background
+            let roundedRect = UIBezierPath(roundedRect: textRect, cornerRadius: 4)
+            UIColor.white.withAlphaComponent(0.8).setFill()
+            roundedRect.fill()
+            
+            // Draw text
+            confidenceText.draw(at: CGPoint(x: textRect.origin.x + 4, y: textRect.origin.y + 2), withAttributes: attributes)
+        }
         
         guard let newImage = UIGraphicsGetImageFromCurrentImageContext() else {
             UIGraphicsEndImageContext()
@@ -1047,6 +1179,91 @@ struct LiveCameraView: View {
         let intersection = goalRegion.intersection(tape)
         let overlap = (intersection.width * intersection.height) / (goalRegion.width * goalRegion.height)
         return overlap > 0.7 // adjust threshold as needed
+    }
+    
+    // Register shot with ShotStatsManager when impact is detected
+    private func registerShot(ball: [AnyHashable: Any]?, lockedTargets: [[AnyHashable: Any]], frameSize: CGSize) {
+        guard let ball = ball,
+              let isDetected = ball["isDetected"] as? Bool,
+              isDetected else {
+            // No valid ball position, register as miss
+            ShotStatsManager.shared.registerShot(isHit: false, distanceMeters: nil)
+            return
+        }
+        
+        // Extract ball coordinates (can be NSNumber or Int)
+        var ballX: CGFloat = 0
+        var ballY: CGFloat = 0
+        
+        if let xNum = ball["x"] as? NSNumber {
+            ballX = CGFloat(xNum.doubleValue)
+        } else if let xInt = ball["x"] as? Int {
+            ballX = CGFloat(xInt)
+        } else {
+            ShotStatsManager.shared.registerShot(isHit: false, distanceMeters: nil)
+            return
+        }
+        
+        if let yNum = ball["y"] as? NSNumber {
+            ballY = CGFloat(yNum.doubleValue)
+        } else if let yInt = ball["y"] as? Int {
+            ballY = CGFloat(yInt)
+        } else {
+            ShotStatsManager.shared.registerShot(isHit: false, distanceMeters: nil)
+            return
+        }
+        
+        let ballPoint = CGPoint(x: ballX, y: ballY)
+        
+        // Check if ball hit any locked target
+        var isHit = false
+        var minDistance: CGFloat = CGFloat.greatestFiniteMagnitude
+        
+        for target in lockedTargets {
+            guard let targetX = target["centerX"] as? NSNumber,
+                  let targetY = target["centerY"] as? NSNumber,
+                  let targetRadius = target["radius"] as? NSNumber else {
+                continue
+            }
+            
+            let targetCenter = CGPoint(
+                x: CGFloat(targetX.doubleValue),
+                y: CGFloat(targetY.doubleValue)
+            )
+            let radius = CGFloat(targetRadius.doubleValue)
+            
+            // Calculate distance from ball to target center
+            let distance = hypot(ballPoint.x - targetCenter.x, ballPoint.y - targetCenter.y)
+            
+            // Check if ball is within target (with some tolerance)
+            if distance <= radius + 15 { // 15 pixel tolerance
+                isHit = true
+                minDistance = 0 // Hit target, no error
+                break
+            } else {
+                // Track minimum distance for error calculation
+                minDistance = min(minDistance, distance - radius)
+            }
+        }
+        
+        // Convert pixel distance to meters (rough approximation)
+        // Assuming a typical goal is ~2.44m high and frame shows roughly that area
+        // This is a simplified conversion - you may want to calibrate this based on your setup
+        let pixelsToMeters: Double
+        if frameSize.height > 0 {
+            // Assuming goal height is ~2.44m, use frame height as reference
+            pixelsToMeters = 2.44 / Double(frameSize.height)
+        } else {
+            // Fallback: assume 1080p = 2.44m height
+            pixelsToMeters = 2.44 / 1080.0
+        }
+        
+        let errorMeters = isHit ? 0.0 : Double(minDistance) * pixelsToMeters
+        
+        // Register shot
+        ShotStatsManager.shared.registerShot(isHit: isHit, distanceMeters: errorMeters > 0 ? errorMeters : nil)
+        
+        print("🎯 Shot registered: \(isHit ? "HIT" : "MISS"), Error: \(errorMeters > 0 ? String(format: "%.2f m", errorMeters) : "0.00 m")")
     }
 }
 

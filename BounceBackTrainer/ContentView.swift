@@ -133,7 +133,7 @@ struct ContentView: View {
                 }
 
                 if let inputURL = inputURL {
-                    VideoPlayer(player: AVPlayer(url: inputURL))
+                    VideoPlayer(player: AVPlayer(playerItem: AVPlayerItem(asset: AVURLAsset(url: inputURL))))
                         .frame(height: 180)
                         .clipShape(RoundedRectangle(cornerRadius: 14))
                         .overlay(
@@ -313,32 +313,6 @@ struct ContentView: View {
         }
     }
 
-    private func checkCameraPermissionForRecording() {
-        switch AVCaptureDevice.authorizationStatus(for: .video) {
-        case .authorized:
-            cameraPermissionGranted = true
-            showCamera = true
-        case .notDetermined:
-            AVCaptureDevice.requestAccess(for: .video) { granted in
-                DispatchQueue.main.async {
-                    cameraPermissionGranted = granted
-                    if granted {
-                        showCamera = true
-                    } else {
-                        errorMessage = "Camera access is required to record clips."
-                        showError = true
-                    }
-                }
-            }
-        case .denied, .restricted:
-            errorMessage = "Please enable camera access in Settings."
-            showError = true
-        @unknown default:
-            errorMessage = "Unknown camera permission status."
-            showError = true
-        }
-    }
-
     private func glassCard<Content: View>(
         @ViewBuilder _ content: () -> Content
     ) -> some View {
@@ -357,7 +331,7 @@ struct ContentView: View {
     private func processVideoWithMLDetection(inputURL: URL) {
         logMemoryUsage(phase: "Before video processing")
         
-        DispatchQueue.global(qos: .userInitiated).async {
+        Task {
             let timestamp = Date()
             let formatter = DateFormatter()
             formatter.dateFormat = "yyyyMMdd_HHmmss"
@@ -370,11 +344,10 @@ struct ContentView: View {
                 try? FileManager.default.removeItem(at: outputURL)
             }
             
-            let asset = AVAsset(url: inputURL)
+            let asset = AVURLAsset(url: inputURL)
             
-            Task {
-                do {
-                    let tracks = try await asset.loadTracks(withMediaType: .video)
+            do {
+                let tracks = try await asset.loadTracks(withMediaType: .video)
                     guard let videoTrack = tracks.first else {
                         DispatchQueue.main.async {
                             self.errorMessage = "No video track found"
@@ -441,7 +414,6 @@ struct ContentView: View {
                     let maxFramesWithoutDetection = 5
                     var velocity: CGPoint = .zero
                     
-                    let semaphore = DispatchSemaphore(value: 0)
                     var frameCount = 0
                     
                     
@@ -453,17 +425,15 @@ struct ContentView: View {
                         guard let readBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { continue }
                         let timestamp = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
                         
-                        // Detect
-                        var mlDetection: MLBallDetection? = nil
-                        MLBallDetector.shared.detectBall(in: readBuffer) { result in
-                            mlDetection = result
-                            semaphore.signal()
+                        // Detect using async/await pattern
+                        let mlDetection = await withCheckedContinuation { (continuation: CheckedContinuation<MLBallDetection?, Never>) in
+                            MLBallDetector.shared.detectBall(in: readBuffer) { result in
+                                continuation.resume(returning: result)
+                            }
                         }
-                        _ = semaphore.wait(timeout: .now() + 0.2)
                         
                         // Logic for path/prediction (same as before)
                         var detectionToUse: MLBallDetection? = nil
-                        var centerPoint: CGPoint? = nil
                         
                         if let detection = mlDetection {
                             let bbox = detection.boundingBox
@@ -476,7 +446,6 @@ struct ContentView: View {
                                 velocity = CGPoint(x: velocity.x * 0.7 + frameVelocity.x * 0.3, y: velocity.y * 0.7 + frameVelocity.y * 0.3)
                             }
                             
-                            centerPoint = currentCenter
                             detectionToUse = detection
                             lastValidDetection = detection
                             lastValidCenter = currentCenter
@@ -502,7 +471,6 @@ struct ContentView: View {
                                 let predictedConfidence = lastDetection.confidence * decayFactor
                                 
                                 detectionToUse = MLBallDetection(boundingBox: predictedBbox, confidence: predictedConfidence, label: lastDetection.label)
-                                centerPoint = predictedCenter
                                 lastValidCenter = predictedCenter
                                 
                                 if predictedConfidence >= 0.2 {
@@ -514,7 +482,7 @@ struct ContentView: View {
                         
                         // Write to output
                         while !writerInput.isReadyForMoreMediaData && writer.status == .writing {
-                            Thread.sleep(forTimeInterval: 0.001)
+                            try? await Task.sleep(nanoseconds: 1_000_000) // 0.001 seconds = 1ms = 1,000,000 nanoseconds
                         }
                         
                         if writer.status == .writing {
@@ -534,25 +502,36 @@ struct ContentView: View {
                         }
                     }
                     
-                    writerInput.markAsFinished()
+                writerInput.markAsFinished()
+                
+                await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
                     writer.finishWriting {
                         self.logMemoryUsage(phase: "After video processing")
-                        DispatchQueue.main.async {
-                            self.isProcessing = false
-                            if writer.status == .completed {
-                                self.outputURL = outputURL
-                                print("✅ Video processed successfully")
-                            } else {
-                                self.errorMessage = "Processing failed: \(writer.error?.localizedDescription ?? "Unknown")"
-                                self.showError = true
-                            }
-                        }
+                        continuation.resume()
                     }
-                    
-                } catch {
-                    DispatchQueue.main.async {
-                        self.errorMessage = "Error: \(error.localizedDescription)"
-=======
+                }
+                
+                await MainActor.run {
+                    self.isProcessing = false
+                    if writer.status == .completed {
+                        self.outputURL = outputURL
+                        print("✅ Video processed successfully")
+                    } else {
+                        self.errorMessage = "Processing failed: \(writer.error?.localizedDescription ?? "Unknown")"
+                        self.showError = true
+                    }
+                }
+                
+            } catch {
+                await MainActor.run {
+                    self.errorMessage = "Error: \(error.localizedDescription)"
+                    self.showError = true
+                    self.isProcessing = false
+                }
+            }
+        }
+    }
+    
     private func saveVideoToPhotos(url: URL) {
         PHPhotoLibrary.requestAuthorization { status in
             guard status == .authorized else {
@@ -569,7 +548,6 @@ struct ContentView: View {
                 DispatchQueue.main.async {
                     if !success {
                         self.errorMessage = "Error saving video: \(error?.localizedDescription ?? "Unknown error")"
->>>>>>> cc504b785c40bdf48a97380563cb63b7a6a888e0
                         self.showError = true
                     }
                 }
@@ -689,80 +667,6 @@ struct ContentView: View {
         } else {
             print("⚠️ Failed to get memory info: \(kerr)")
         }
-    }
-}
-
-private struct PrimaryRow: View {
-    let icon: String
-    let title: String
-    let subtitle: String
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon)
-                .font(.title2)
-                .frame(width: 32, height: 32)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundColor(.white)
-                Text(subtitle)
-                    .font(.caption)
-                    .foregroundColor(.white.opacity(0.6))
-            }
-            Spacer()
-        }
-        .padding(12)
-        .background(Color.white.opacity(0.06))
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-    }
-}
-
-private struct SecondaryRow: View {
-    let icon: String
-    let title: String
-
-    var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: icon)
-                .font(.subheadline)
-            Text(title)
-                .font(.subheadline)
-            Spacer()
-        }
-        .foregroundColor(.white.opacity(0.9))
-        .padding(10)
-        .background(Color.white.opacity(0.03))
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-    }
-}
-
-struct FFTBallDetectionView: View {
-    var body: some View {
-        VStack(spacing: 16) {
-            Text("FFT Ball Detection")
-                .font(.title2.weight(.semibold))
-            Text("FFT-based detection UI is not wired yet.\nML live detection is available from the main tools screen.")
-                .font(.footnote)
-                .multilineTextAlignment(.center)
-                .foregroundColor(.secondary)
-        }
-        .padding()
-=======
-
-    private func glassCard<Content: View>(
-        @ViewBuilder _ content: () -> Content
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 16, content: content)
-            .padding(16)
-            .background(Color.white.opacity(0.08))
-            .background(.ultraThinMaterial.opacity(0.4))
-            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .stroke(Color.white.opacity(0.12), lineWidth: 1)
-            )
->>>>>>> cc504b785c40bdf48a97380563cb63b7a6a888e0
     }
 }
 
